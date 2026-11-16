@@ -143,8 +143,10 @@ func Plan(cfg Cfg, cur UCI, f Features) Result {
 		if ht := htmode(mode, cur[k+"htmode"]); ht != "" {
 			want["htmode"] = ht
 		}
-		if cc := countryCode(cfg[p+"countrycode"], cfg["radio.countrycode"]); cc != "" {
+		if cc, raw := countryCode(cfg[p+"countrycode"], cfg["radio.countrycode"]); cc != "" {
 			want["country"] = cc
+		} else if raw != "" {
+			r.Notes = append(r.Notes, fmt.Sprintf("radio %s: unknown country code %q from the controller: country left as it is", sec, raw))
 		}
 		switch tp := cfg[p+"txpower"]; {
 		case tp == "auto" || tp == "":
@@ -187,6 +189,16 @@ func Plan(cfg Cfg, cur UCI, f Features) Result {
 		}
 		wanted[iface{ssid, sec}] = true
 		ifs := findIface(cur, sec, ssid)
+		enc, note := encryption(cfg, a)
+		if enc == "" {
+			// Never broadcast a WLAN with a different security type than
+			// the one configured: leave it off (and do not create it).
+			r.Notes = append(r.Notes, fmt.Sprintf("wireless.%s (%q on %s): %s: left off", n, ssid, sec, note))
+			if ifs != "" && cur["wireless."+ifs+".disabled"] != "1" {
+				r.Ops = append(r.Ops, Op{Key: "wireless." + ifs + ".disabled", Value: "1", Old: cur["wireless."+ifs+".disabled"]})
+			}
+			continue
+		}
 		if ifs == "" {
 			ifs = fmt.Sprintf("unifi_%s_%s", sec, n)
 			r.Notes = append(r.Notes, fmt.Sprintf("new wifi-iface %s for %q on %s", ifs, ssid, sec))
@@ -209,7 +221,6 @@ func Plan(cfg Cfg, cur UCI, f Features) Result {
 			delete(want, "disabled")
 			r.Schedules = append(r.Schedules, *sched)
 		}
-		enc, note := encryption(cfg, a)
 		want["encryption"] = enc
 		if note != "" && !strings.Contains(cur[k+"encryption"], "sae") && strings.Contains(note, "WPA3") {
 			note = "" // nothing to lose: the interface had no WPA3
@@ -424,16 +435,21 @@ func htmode(mode, cur string) string {
 	}
 }
 
-func countryCode(per, global string) string {
-	c := per
-	if c == "" {
-		c = global
+// countryCode: the alpha-2 country for a radio (its own code, else the
+// global one); raw is the controller's numeric code, "" when none was sent.
+func countryCode(per, global string) (cc, raw string) {
+	raw = per
+	if raw == "" {
+		raw = global
 	}
-	codes := map[string]string{"840": "US", "528": "NL", "276": "DE", "826": "GB", "250": "FR", "56": "BE", "124": "CA", "36": "AU"}
-	return codes[c]
+	if t := strings.TrimLeft(raw, "0"); t != "" {
+		cc = countryAlpha2[t]
+	}
+	return cc, raw
 }
 
-// encryption maps aaa.N.wpa* to an OpenWrt encryption value.
+// encryption maps aaa.N.wpa* to an OpenWrt encryption value and a note;
+// "" means the security type is not supported and the WLAN must stay off.
 func encryption(cfg Cfg, a string) (string, string) {
 	if cfg[a+"wpa"] == "" && cfg[a+"wpa.psk"] == "" {
 		return "none", ""
@@ -465,8 +481,11 @@ func encryption(cfg Cfg, a string) (string, string) {
 		return "sae", ""
 	case psk:
 		return "psk2+ccmp", "WPA2-only from the controller (no SAE): this interface would lose WPA3"
+	case len(mgmt) == 0:
+		return "psk2+ccmp", "no key mgmt listed, assumed WPA2-PSK"
 	default:
-		return "psk2+ccmp", fmt.Sprintf("unrecognised key mgmt %v, assumed WPA2-PSK", mgmt)
+		// WPA-Enterprise (WPA-EAP), OWE and anything else not built here.
+		return "", fmt.Sprintf("key mgmt %v is not supported (only WPA2/WPA3 personal)", mgmt)
 	}
 }
 

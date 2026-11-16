@@ -231,3 +231,59 @@ macacl.1.acl.status=enabled
 		t.Fatalf("unexpected %+v", op)
 	}
 }
+
+func TestCountryCode(t *testing.T) {
+	for _, c := range []struct{ per, global, cc string }{
+		{"840", "", "US"}, {"", "528", "NL"}, {"724", "840", "ES"}, {"392", "", "JP"},
+		{"056", "", "BE"}, {"36", "", "AU"}, {"9999", "", ""}, {"", "", ""}, {"0", "", ""},
+	} {
+		if cc, _ := countryCode(c.per, c.global); cc != c.cc {
+			t.Errorf("countryCode(%q, %q) = %q, want %q", c.per, c.global, cc, c.cc)
+		}
+	}
+	if len(countryAlpha2) < 240 {
+		t.Errorf("country table has only %d entries", len(countryAlpha2))
+	}
+	// an unknown code leaves the country alone and says so
+	r := Plan(ParseCfg(strings.ReplaceAll(cfg, "countrycode=840", "countrycode=9999")), ParseUCI(cur), Features{})
+	for _, op := range r.Ops {
+		if strings.HasSuffix(op.Key, ".country") {
+			t.Errorf("unknown country code: unexpected op %+v", op)
+		}
+	}
+	if !strings.Contains(strings.Join(r.Notes, "\n"), "unknown country code") {
+		t.Errorf("unknown country code: no note in %q", r.Notes)
+	}
+}
+
+// A security type that is not built (WPA-Enterprise, OWE) must never come up
+// as WPA2-PSK: an existing interface is switched off, a new one is not made.
+func TestUnsupportedSecurityStaysOff(t *testing.T) {
+	for _, mgmt := range []string{"WPA-EAP", "OWE", "WPA-EAP-SUITE-B-192"} {
+		c := strings.Replace(cfg, "aaa.1.wpa.key.1.mgmt=SAE", "aaa.1.wpa.key.1.mgmt="+mgmt, 1) +
+			"aaa.4.ssid=corp\naaa.4.wpa=2\naaa.4.wpa.key.1.mgmt=" + mgmt + "\nwireless.4.ssid=corp\nwireless.4.parent=wifi1\nwireless.4.usage=user\n"
+		r := Plan(ParseCfg(c), ParseUCI(cur), Features{})
+		off, n := false, 0
+		for _, op := range r.Ops {
+			switch {
+			case op.Key == "wireless.ap0.disabled" && op.Value == "1":
+				off = true
+				n++
+			case strings.HasPrefix(op.Key, "wireless.ap0."):
+				t.Errorf("%s: existing interface changed: %+v", mgmt, op)
+			case op.Value == "wifi-iface" && !strings.Contains(op.Key, "radio0_2"):
+				t.Errorf("%s: interface created: %+v", mgmt, op)
+			}
+		}
+		if !off || n != 1 {
+			t.Errorf("%s: existing interface not switched off exactly once (%d)", mgmt, n)
+		}
+		if got := strings.Count(strings.Join(r.Notes, "\n"), "] is not supported"); got != 2 {
+			t.Errorf("%s: %d notes, want 2: %q", mgmt, got, r.Notes)
+		}
+	}
+	// no key mgmt listed but a passphrase: still WPA2-PSK, as before
+	if enc, _ := encryption(Cfg{"aaa.1.wpa": "2", "aaa.1.wpa.psk": "x"}, "aaa.1."); enc != "psk2+ccmp" {
+		t.Errorf("no mgmt: %q", enc)
+	}
+}
