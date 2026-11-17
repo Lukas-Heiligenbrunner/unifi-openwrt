@@ -5,6 +5,7 @@ package device
 import (
 	"encoding/json"
 	"net"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -140,5 +141,48 @@ func TestSetAdoptParse(t *testing.T) {
 	r := <-s.Requests
 	if r.URL != "http://192.168.1.1:8080/inform" || r.Key != newKey {
 		t.Fatalf("%+v", r)
+	}
+}
+
+// "Override inform host": the controller repeats the setparam until the
+// device reports the new address.
+func TestInformURLFromMgmtCfg(t *testing.T) {
+	x := newSession(t)
+	handle(t, x, `{"_type":"setparam","mgmt_cfg":"authkey=`+newKey+`\ncfgversion=1\n"}`)
+	o := handle(t, x, `{"_type":"setparam","mgmt_cfg":"cfgversion=1\ninform_url=http://192.168.1.9:8080/inform\n"}`)
+	if x.S.InformURL != "http://192.168.1.9:8080/inform" || !o.Changed || !o.Immediate {
+		t.Fatalf("inform_url %q changed=%v immediate=%v", x.S.InformURL, o.Changed, o.Immediate)
+	}
+	js, err := x.Payload(time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	json.Unmarshal(js, &m)
+	if m["inform_url"] != x.S.InformURL || m["inform_ip"] != "192.168.1.9" {
+		t.Errorf("reported inform_url %v inform_ip %v", m["inform_url"], m["inform_ip"])
+	}
+	for _, bad := range []string{"ftp://192.168.1.9/x", "192.168.1.9:8080", "http://"} {
+		handle(t, x, `{"_type":"setparam","mgmt_cfg":"cfgversion=1\ninform_url=`+bad+`\n"}`)
+		if x.S.InformURL != "http://192.168.1.9:8080/inform" {
+			t.Errorf("malformed inform_url %q taken", bad)
+		}
+	}
+}
+
+// A setparam the controller keeps repeating unchanged must not keep the
+// device informing twice a second for ever.
+func TestRepeatedSetparamStopsHurrying(t *testing.T) {
+	x := newSession(t)
+	same := `{"_type":"setparam","mgmt_cfg":"cfgversion=7\nsomething_new=1\n"}`
+	var got []bool
+	for i := 0; i < 6; i++ {
+		got = append(got, handle(t, x, same).Immediate)
+	}
+	if want := []bool{true, true, true, false, false, false}; !slices.Equal(got, want) {
+		t.Errorf("immediate %v, want %v", got, want)
+	}
+	if !handle(t, x, `{"_type":"setparam","mgmt_cfg":"cfgversion=8\n"}`).Immediate {
+		t.Error("a new setparam must be answered right away")
 	}
 }

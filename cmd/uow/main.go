@@ -13,7 +13,8 @@
 //   - Ubiquiti firmware upgrades are answered but never downloaded or applied;
 //   - a made-up device uses only a locally administered MAC (02:...);
 //   - optional read-only UniFi health check (GET) every -health-every;
-//   - stop after -max-errors consecutive bad answers;
+//   - bad answers: keep informing, up to a minute apart (-max-errors N
+//     stops after N in a row instead);
 //   - keys are never logged; system_cfg is never logged (it holds the
 //     Wi-Fi passphrase).
 package main
@@ -71,7 +72,7 @@ func main() {
 	stateDir := flag.String("state", "uow-state", "state directory (created mode 700)")
 	healthEvery := flag.Duration("health-every", time.Minute, "health check period")
 	sshListen := flag.String("ssh-listen", ":2222", "fake device SSH (adoption only); empty = off")
-	maxErrors := flag.Int("max-errors", 6, "consecutive bad answers before stopping")
+	maxErrors := flag.Int("max-errors", 0, "stop after this many bad answers in a row (0 = never: keep trying, up to a minute apart)")
 	flag.Parse()
 	if h, _, err := net.SplitHostPort(*apAddr); err == nil {
 		apHost = h
@@ -319,7 +320,7 @@ func main() {
 			errs = 0
 		default:
 			errs++
-			if errs >= *maxErrors {
+			if *maxErrors > 0 && errs >= *maxErrors {
 				log.Printf("STOP: %d bad answers in a row", errs)
 				return
 			}
@@ -381,6 +382,13 @@ func main() {
 		if next.Immediate {
 			wait = 500 * time.Millisecond
 		}
+		if errs > 0 {
+			// like a real AP: keep informing, further and further apart
+			wait = min(max(interval, 5*time.Second)*time.Duration(1<<min(errs-1, 4)), time.Minute)
+			if errs == 1 || errs%10 == 0 {
+				log.Printf("%d bad answer(s) in a row: next inform in %s", errs, wait)
+			}
+		}
 		select {
 		case <-stop:
 			log.Printf("stopped by signal")
@@ -435,6 +443,9 @@ func informOnce(x *device.Session, c *http.Client, statePath string) (device.Out
 		return device.Outcome{}, false
 	}
 
+	if len(body) == 0 {
+		return device.Outcome{}, true // nothing for us this time
+	}
 	_, plain, err := inform.Decode(body, x.S.Key)
 	if err != nil && x.S.Key != inform.DefaultKeyHex {
 		_, plain, err = inform.Decode(body, inform.DefaultKeyHex)

@@ -9,9 +9,11 @@
 package device
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -82,6 +84,9 @@ type Session struct {
 	StateDir string // where state.json and system_cfg.txt live (mode 700)
 	SSHPort  int    // reported as sshd_port: where the console SSHes to adopt
 	ledKnown bool
+	// the last setparam and how often it was repeated unchanged
+	lastParam  [sha256.Size]byte
+	sameParams int
 	// Extra, when set, returns fields read from the real AP (radios, VAPs,
 	// clients, system); they replace the static U7PG2 defaults.
 	Extra func() map[string]any
@@ -217,6 +222,9 @@ func (x *Session) Handle(js []byte, now time.Time) (Outcome, error) {
 	if r.Interval > 0 {
 		o.Interval = time.Duration(r.Interval) * time.Second
 	}
+	if r.Type != "setparam" {
+		x.sameParams = 0 // the controller moved on
+	}
 	switch r.Type {
 	case "noop":
 		o.Immediate = r.Immediate != 0
@@ -250,7 +258,7 @@ func (x *Session) Handle(js []byte, now time.Time) (Outcome, error) {
 }
 
 func (x *Session) setparam(r Reply, o *Outcome) {
-	var cv, authkey, gcm string
+	var cv, authkey, gcm, informURL string
 	var keys []string
 	for _, line := range strings.Split(r.MgmtCfg, "\n") {
 		k, v, ok := strings.Cut(strings.TrimSpace(line), "=")
@@ -265,6 +273,8 @@ func (x *Session) setparam(r Reply, o *Outcome) {
 			authkey = v
 		case "use_aes_gcm":
 			gcm = v
+		case "inform_url":
+			informURL = v
 		case "led_enabled":
 			on := v == "true"
 			if on != x.S.LED || !x.ledKnown {
@@ -278,9 +288,20 @@ func (x *Session) setparam(r Reply, o *Outcome) {
 		cv = r.CfgVersion // full provisioning carries it top-level too
 	}
 	ev := fmt.Sprintf("setparam: mgmt_cfg keys=%v", keys)
-	if r.MgmtCfg != "" {
+	if r.MgmtCfg != "" && r.MgmtCfg != x.S.MgmtCfg {
 		x.S.MgmtCfg = r.MgmtCfg
 		o.Changed = true
+	}
+	// "Override inform host" (or a migration): the controller names the
+	// address to inform to and repeats the setparam until we report it.
+	if informURL != "" && informURL != x.S.InformURL {
+		if u, err := url.Parse(informURL); err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Hostname() != "" {
+			ev += fmt.Sprintf(" inform_url %s -> %s", x.S.InformURL, informURL)
+			x.S.InformURL = informURL
+			o.Changed = true
+		} else {
+			ev += fmt.Sprintf(" (ignored a malformed inform_url %q)", informURL)
+		}
 	}
 	if cv != "" && cv != x.S.CfgVersion {
 		ev += fmt.Sprintf(" cfgversion %s->%s", x.S.CfgVersion, cv)
@@ -323,7 +344,23 @@ func (x *Session) setparam(r Reply, o *Outcome) {
 		x.setBlocked(ParseMACs(*r.BlockedSta), o)
 	}
 	o.Events = append(o.Events, ev)
-	o.Immediate = true // a real device informs right after applying a setparam
+	// A real device informs right after applying a setparam. If the
+	// controller keeps sending the very same one (it wants something we do
+	// not do), stop hurrying after the third and keep the normal interval.
+	blocked := "-"
+	if r.BlockedSta != nil {
+		blocked = *r.BlockedSta
+	}
+	sum := sha256.Sum256([]byte(r.CfgVersion + "\x00" + r.MgmtCfg + "\x00" + r.SystemCfg + "\x00" + blocked))
+	if sum == x.lastParam {
+		x.sameParams++
+	} else {
+		x.lastParam, x.sameParams = sum, 0
+	}
+	o.Immediate = x.sameParams < 3
+	if x.sameParams == 3 {
+		o.Events = append(o.Events, "the controller repeats the same setparam: informing at the normal interval")
+	}
 }
 
 // sections lists the top-level keys of system_cfg (e.g. "aaa", "radio",

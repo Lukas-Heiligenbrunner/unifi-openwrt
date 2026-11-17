@@ -4,6 +4,8 @@ package inform
 
 import (
 	"encoding/json"
+	"errors"
+	"net"
 	"testing"
 )
 
@@ -70,11 +72,38 @@ func TestU7PG2PendingInformOffline(t *testing.T) {
 	t.Logf("pending inform: %d bytes JSON, %d bytes on the wire", len(js), len(pkt))
 }
 
-func TestU7PG2RejectsHostnameInformURL(t *testing.T) {
+// The controller rejects an inform whose inform_ip is not an address, so
+// a name in the inform URL ("Override inform host") is looked up.
+func TestU7PG2HostnameInformURL(t *testing.T) {
+	old := lookupIP
+	defer func() { lookupIP = old }()
+	calls := 0
+	lookupIP = func(h string) ([]net.IP, error) {
+		calls++
+		if h == "unifi.test" {
+			return []net.IP{net.ParseIP("fd00::1"), net.ParseIP("192.0.2.7")}, nil
+		}
+		return nil, errors.New("no such host")
+	}
 	d := testDevice()
-	d.InformURL = "http://unifi:8080/inform"
-	if _, err := PendingInform(d); err == nil {
-		t.Fatal("hostname inform_url accepted (controller rejects it: invalid inform_ip)")
+	d.InformURL = "http://unifi.test:8080/inform"
+	for i := 0; i < 2; i++ {
+		m, err := U7PG2Fields(d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m["inform_ip"] != "192.0.2.7" || m["inform_url"] != d.InformURL {
+			t.Errorf("inform_ip %v, inform_url %v", m["inform_ip"], m["inform_url"])
+		}
+	}
+	if calls != 1 {
+		t.Errorf("%d lookups, want 1 (cached)", calls)
+	}
+	for _, u := range []string{"http://nowhere.test:8080/inform", "http://[fd00::1]:8080/inform", "http://"} {
+		d.InformURL = u
+		if _, err := PendingInform(d); err == nil {
+			t.Errorf("%s accepted", u)
+		}
 	}
 }
 

@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
+	"time"
 )
 
 // U7PG2 identity: UAP-AC-Pro (Gen2). Firmware string as reported by the real
@@ -70,8 +72,9 @@ func U7PG2Fields(d Device) (map[string]any, error) {
 	if len(d.MAC) != 6 {
 		return nil, fmt.Errorf("u7pg2: MAC must be 6 bytes")
 	}
-	if ip := net.ParseIP(hostOf(d.InformURL)); ip == nil || ip.To4() == nil {
-		return nil, fmt.Errorf("u7pg2: inform_url host must be an IPv4 literal: %q", d.InformURL)
+	informIP, err := informIP(d.InformURL)
+	if err != nil {
+		return nil, err
 	}
 	mac := strings.ToLower(d.MAC.String())
 	serial := d.Serial
@@ -98,7 +101,7 @@ func U7PG2Fields(d Device) (map[string]any, error) {
 		"gateway_ip":     d.Gateway,
 		"hostname":       d.Hostname,
 		"inform_url":     d.InformURL,
-		"inform_ip":      hostOf(d.InformURL),
+		"inform_ip":      informIP,
 		"uptime":         d.Uptime,
 		"time":           d.Time,
 		"cfgversion":     "0",
@@ -129,6 +132,51 @@ func DefaultU7PG2Radios() []Radio {
 		{Name: "wifi1", Radio: "na", Channel: "auto", HT: "80", MinTxpower: 5, MaxTxpower: 23, NSS: 3, TxPower: "auto", TxPowerMode: "auto", AntennaGain: 3, BuiltinAnt: true, BuiltinGain: 3},
 	}
 }
+
+// informIP: the IPv4 address of the inform URL's host. The URL normally
+// carries a literal; a controller with "Override inform host" may send a
+// name, which is looked up (cached for five minutes; a failed lookup keeps
+// the last answer).
+func informIP(u string) (string, error) {
+	h := hostOf(u)
+	if ip := net.ParseIP(h); ip != nil {
+		if ip.To4() == nil {
+			return "", fmt.Errorf("u7pg2: inform_url host must be IPv4: %q", u)
+		}
+		return h, nil
+	}
+	if h == "" {
+		return "", fmt.Errorf("u7pg2: inform_url has no host: %q", u)
+	}
+	ipMu.Lock()
+	defer ipMu.Unlock()
+	e := ipCache[h]
+	if e.ip != "" && time.Since(e.at) < 5*time.Minute {
+		return e.ip, nil
+	}
+	ips, err := lookupIP(h)
+	for _, ip := range ips {
+		if v4 := ip.To4(); v4 != nil {
+			ipCache[h] = ipEntry{v4.String(), time.Now()}
+			return v4.String(), nil
+		}
+	}
+	if e.ip != "" {
+		return e.ip, nil
+	}
+	return "", fmt.Errorf("u7pg2: inform_url host %q has no IPv4 address (%v)", h, err)
+}
+
+type ipEntry struct {
+	ip string
+	at time.Time
+}
+
+var (
+	lookupIP = net.LookupIP
+	ipMu     sync.Mutex
+	ipCache  = map[string]ipEntry{}
+)
 
 func hostOf(u string) string {
 	s := u

@@ -282,6 +282,17 @@ func TestUnsupportedSecurityStaysOff(t *testing.T) {
 			t.Errorf("%s: %d notes, want 2: %q", mgmt, got, r.Notes)
 		}
 	}
+	// WEP and Enhanced Open arrive without wpa rows: never an open network
+	for _, c := range []Cfg{{"aaa.1.security": "wep64"}, {"aaa.1.security": "aes128"}, {"aaa.1.wpa3.support": "enabled", "aaa.1.wpa3.transition": "enabled"}} {
+		if enc, note := encryption(c, "aaa.1."); enc != "" || note == "" {
+			t.Errorf("%v: enc %q note %q", c, enc, note)
+		}
+	}
+	for _, c := range []Cfg{{}, {"aaa.1.security": "none"}, {"aaa.1.wpa3.support": "disabled"}} {
+		if enc, _ := encryption(c, "aaa.1."); enc != "none" {
+			t.Errorf("%v: enc %q, want none", c, enc)
+		}
+	}
 	// no key mgmt listed but a passphrase: still WPA2-PSK, as before
 	if enc, _ := encryption(Cfg{"aaa.1.wpa": "2", "aaa.1.wpa.psk": "x"}, "aaa.1."); enc != "psk2+ccmp" {
 		t.Errorf("no mgmt: %q", enc)

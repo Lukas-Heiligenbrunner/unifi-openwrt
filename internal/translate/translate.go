@@ -452,6 +452,15 @@ func countryCode(per, global string) (cc, raw string) {
 // "" means the security type is not supported and the WLAN must stay off.
 func encryption(cfg Cfg, a string) (string, string) {
 	if cfg[a+"wpa"] == "" && cfg[a+"wpa.psk"] == "" {
+		// The controller's open branch also carries WEP (security=wep64,
+		// wep128, aes128) and Enhanced Open (wpa3.support): neither is
+		// built, and neither may come up as an open network.
+		if s := cfg[a+"security"]; s != "" && s != "none" && s != "open" {
+			return "", fmt.Sprintf("security %q (WEP) is not supported", s)
+		}
+		if cfg[a+"wpa3.support"] == "enabled" {
+			return "", "Enhanced Open (OWE) is not supported"
+		}
 		return "none", ""
 	}
 	var mgmt []string
