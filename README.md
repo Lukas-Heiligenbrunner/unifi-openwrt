@@ -33,11 +33,14 @@ So this repo does two things:
   [docs/internals.md](docs/internals.md), so it can be checked, ported to other devices, or carried
   on by anyone.
 
-> **Tested on one device only.** Everything here was tested on a single
+> **Tested on two devices only.** Everything here was tested on a single
 > TP-Link OnHub (TGR1900) running OpenWrt 25.12, adopted as a UAP-AC-Pro
-> into UniFi Network 10.6 on a UniFi Express 7. Other OpenWrt devices, other
-> UniFi models and other controller versions are **best effort**: they may
-> work, they have not been tried. Reports are welcome.
+> into UniFi Network 10.6 on a UniFi Express 7. A contributor
+> ([@dohun0310](https://github.com/dohun0310)) runs it on a Linksys LN1301
+> (MX4300) adopted as a U6-IW, and added and tested the wired clients and
+> in-wall port numbering there. Other OpenWrt devices, other UniFi models and
+> other controller versions are **best effort**: they may work, they have not
+> been tried. Reports are welcome.
 
 **It never applies Ubiquiti firmware.** Upgrade requests from the controller
 are answered and ignored; Ubiquiti firmware would brick a non-Ubiquiti
@@ -109,7 +112,7 @@ Tested live on the device above unless marked otherwise.
 | Live updates (1 s informs while the panel is open) | works |
 | Wi-Fi experience (satisfaction) | partial: PHY-rate and retry sub-scores, as the firmware computes them ([details](docs/internals.md#unifi-ap-satisfaction--wifi-experience-score-how-it-is-computed)) |
 | Ethernet ports in the device panel | works (Port Manager; an AC Pro has no port squares) |
-| Wired clients on the AP's LAN ports | built, **untested live**; in-wall models only (U6-IW and the others with the `ACCESS_POINT_SWITCH` feature) |
+| Wired clients on the AP's LAN ports | tested by a contributor on a Linksys LN1301 adopted as a U6-IW, not on the OnHub; in-wall models only (U6-IW and the others with the `ACCESS_POINT_SWITCH` feature) |
 | Radios: channel, width, transmit power, country | works |
 | Indoor / Outdoor | works (Country IE environment) |
 | Minimum RSSI, load balancing (max clients) | works |
@@ -140,7 +143,7 @@ Tested live on the device above unless marked otherwise.
 | Serving mesh children, VLANs over mesh | not built |
 | Debug terminal, Support file | not built |
 | Discovery broadcast (the AP showing up by itself, before it has the controller's address) | not built: the AP is given the address |
-| Wired clients per port, LLDP, DFS radar events | not built |
+| LLDP, DFS radar events | not built |
 
 Technical notes for contributors are in [docs/](docs/):
 [docs/internals.md](docs/internals.md): protocol, config translation, stats,
@@ -215,7 +218,7 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags='-s -w' 
 
 ## Contributing
 
-Issues and pull requests are welcome. It has been tested on one device only, so
+Issues and pull requests are welcome. It has been tested on two devices only, so
 reports from other OpenWrt devices, UniFi models and controller versions help
 most: say which device, OpenWrt version, model (`-model`) and controller version,
 and attach `logread -e uow` with keys and passphrases removed (the daemon never
@@ -237,6 +240,12 @@ This project builds on the work of others:
   early descriptions of the inform protocol and `set-adopt`.
 - [OpenWrt](https://openwrt.org), with hostapd, iw, usteer and apk-tools, does
   the actual work on the access point.
+
+Contributors:
+
+- [@dohun0310](https://github.com/dohun0310): wired clients on the AP's LAN
+  ports, the uplink port setting and in-wall port numbering, tested on a
+  Linksys LN1301.
 
 Similar projects:
 
