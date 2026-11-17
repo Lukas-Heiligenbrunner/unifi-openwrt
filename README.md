@@ -142,7 +142,7 @@ Tested live on the device above unless marked otherwise.
 | Mesh Parent (choose the uplink AP) | built, **untested live** |
 | Serving mesh children, VLANs over mesh | not built |
 | Debug terminal, Support file | not built |
-| LLDP neighbours (what is on the other end of each cable) | built, **untested live**; needs the optional `lldpd` package, which also announces the AP to the switch |
+| LLDP neighbours (what is on the other end of each cable) | works with the optional `lldpd` package, which also announces the AP to the switch: the controller then takes the AP's uplink from LLDP. lldpd must listen on the Ethernet ports themselves: `uci add_list lldpd.config.interface=lan1` (your port names), `uci commit lldpd`, `/etc/init.d/lldpd restart` |
 | Discovery broadcast (the AP showing up by itself, before it has the controller's address) | not built: the AP is given the address. A controller that finds a device this way adopts it by logging in on its SSH port 22 as `ubnt`, which this project leaves alone |
 | DFS radar events | not built |
 

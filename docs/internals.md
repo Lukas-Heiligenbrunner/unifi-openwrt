@@ -334,8 +334,14 @@ AP (`lldpctl -f json0`; the older keyed `-f json` form is read too): per
 neighbour `local_port_idx` (the `port_idx` above), `local_port_name`,
 `is_wired`, `chassis_id`, `chassis_descr`, `port_id`, `port_descr`. A
 neighbour heard on anything but a reported port is left out. Sending the
-AP's own LLDP frames is lldpd's work, not the daemon's. Not tested against
-a live lldpd or controller yet.
+AP's own LLDP frames is lldpd's work, not the daemon's.
+
+OpenWrt's default lldpd configuration listens on `lo` and `br-lan` only. It
+sends from there, so a switch hears the AP, but a bridge does not pass LLDP
+frames up, so lldpd hears nothing until the Ethernet ports are in its
+interface list (`uci add_list lldpd.config.interface=lan1`). Seen live with
+lldpd 1.0.22 and a UniFi switch: the controller stores the AP's
+`lldp_table`, and the AP's `uplink_source` becomes `lldp_uplink`.
 
 ### System
 
