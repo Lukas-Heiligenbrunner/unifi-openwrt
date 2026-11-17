@@ -67,15 +67,15 @@ JSON, one object. Sent on every inform, pending or adopted:
 | `mac` | the AP's MAC, lowercase, colon hex |
 | `serial` | MAC in upper hex without colons |
 | `model`, `model_display`, `version` | from the chosen model (default `U7PG2`, `UniFi AP-AC-Pro`, `6.8.2.15592`) |
-| `ip`, `hostname`, `netmask`, `gateway` | the AP's |
-| `inform_url` | the controller URL (IP literal) |
+| `ip`, `hostname`, `netmask`, `gateway_ip` | the AP's |
+| `inform_url`, `inform_ip` | the controller URL and its IPv4 address (looked up when the URL carries a name) |
 | `uptime`, `time` | seconds since boot, Unix seconds |
 | `cfgversion` | `"0"` while pending, then the controller's; a mismatch makes the controller re-provision |
 | `default`, `_default_key` | `true` until adopted |
 | `state` | 1 pending, 4 adopted (not read by the controller) |
 | `fw_caps` | `3` (nothing) while pending; the model profile's value once adopted. Send it as an unsigned 32-bit number |
 | `sshd_port` | where the controller SSHes to adopt (see below) |
-| `inform_min_interval` | `1`: the device supports live updates (see `docs/stats.md`) |
+| `inform_min_interval` | `1`: the device supports live updates (see [Live updates](#live-updates)) |
 
 Do not send `udapi_caps` without `udapi_version` (the controller then drops all
 capabilities); a U7PG2 sends neither. Send no `_type` for a normal inform.
@@ -83,7 +83,7 @@ capabilities); a U7PG2 sends neither. Send no `_type` for a normal inform.
 Once adopted the inform also carries `radio_table`, `vap_table` (with
 `sta_table` per VAP), `if_table`, `port_table`, `sys_stats`, `system-stats`,
 `stat`, `satisfaction`, `hash_id`, `guest_token` and the capability words.
-See `docs/stats.md`.
+See [Stats in the inform](#stats-in-the-inform).
 
 ### Adoption
 
@@ -111,6 +111,13 @@ controller shows it as connected.
 
 - `noop` with `interval` (seconds until the next inform).
 - `setparam`: `mgmt_cfg`, `system_cfg`, `blocked_sta` (newline-separated MACs).
+  From `mgmt_cfg` the daemon takes `cfgversion`, `authkey` (only while on the
+  factory key), `use_aes_gcm`, `led_enabled` and `inform_url` ("Override
+  inform host": the controller repeats the setparam until the device reports
+  that address). A setparam repeated unchanged is answered at once three
+  times, then at the normal interval.
+- An empty reply means "nothing". After a bad answer the daemon keeps
+  informing, up to a minute apart.
 - `cmd`: `set-adopt`, `set-locate` / `unset-locate`, `kick-sta`,
   `block-sta` / `unblock-sta` (with `mac`), `authorize-guest` /
   `unauthorize-guest`, `scan`, `spectrum-scan`, `reboot`, `setdefault`.
@@ -198,15 +205,15 @@ A requested feature the AP lacks is left off and noted ("clamped").
 | `stamgr.N.loadbalance.*` | `maxassoc` on the radio's UniFi interfaces |
 | `bandsteering.*` | usteer in local mode (`prefer_5g`, `equal`), stopped when off |
 | `qos.vap.N.*` (user-group rate limits, kbps) | per-client tc HTB shaping on the VAP (download) and an IFB (upload); nftables policing if tc is missing |
-| `aaa.N.is_guest`, `ebtables`, `iptables`, `ipset`, `redirector` | nftables bridge table for guest isolation, guest DNS forwarder, portal redirect. See `docs/guest.md` |
-| `vlan.N`, `bridge.N` | per-VLAN bridge on the cable port. See `docs/vlan.md` |
-| `mesh.*`, the `vwire` VAP | mesh-uplink watcher. See `docs/mesh.md` |
+| `aaa.N.is_guest`, `ebtables`, `iptables`, `ipset`, `redirector` | nftables bridge table for guest isolation, guest DNS forwarder, portal redirect. See [Guest WLANs](#guest-wlans-and-the-guest-portal) |
+| `vlan.N`, `bridge.N` | per-VLAN bridge on the cable port. See [VLANs](#vlans) |
+| `mesh.*`, the `vwire` VAP | mesh-uplink watcher. See [Mesh](#mesh-wireless-uplink) |
 | `system.timezone`, `ntpclient.N.server` | `system.@system[0].timezone`, `system.ntp.server` |
 | `netconf`, `dhcpc`, `route`, `resolv` (management IP) | `network.lan` `proto dhcp` or `static` (`ipaddr`, `netmask`, `gateway`, `dns`). A static address other than the one the daemon reaches the AP on is refused |
 | `users.N` (site Device SSH Authentication, sha512-crypt) | extra uid-0 logins in `/etc/passwd` / `/etc/shadow`; only accounts listed in `/etc/unifi-openwrt/users` are touched, never root or system accounts |
-| `syslog.remote.*` | plain: logd `log_ip` / `log_port` / `log_proto`; encrypted: the daemon forwards itself (`docs/protocol.md`) |
+| `syslog.remote.*` | plain: logd `log_ip` / `log_port` / `log_proto`; encrypted: the daemon forwards itself ([Encrypted remote syslog](#encrypted-remote-syslog)) |
 | `snmp.*` (`version`, `community`, `user.N`) | `/etc/unifi-openwrt/snmpd.conf` (mode 600) and an snmpd procd instance while it exists. OpenWrt's `snmpd` package is `snmpd-nossl`, so SNMPv3 auth/priv is not available |
-| `ledbar.*` | LED colour and brightness (`docs/led.md`) |
+| `ledbar.*` | LED colour and brightness ([Status LED](#status-led)) |
 
 Radios the controller remembers but the AP does not report are ignored (the
 controller never drops a radio row once reported, so get the radio list
@@ -448,7 +455,7 @@ The controller decides what to push from capability words in the inform:
   `has_fccdfs`. The 5 GHz width resolver uses min(country, radio ht, device
   caps), and the device caps allow 80 MHz only if the radio row has `is_11ac`
   (or `is_11ax`).
-- `hw_caps`: LED bar colour (2) and brightness (16384), see `docs/led.md`.
+- `hw_caps`: LED bar colour (2) and brightness (16384), see [Status LED](#status-led).
 
 With nothing claimed (`fw_caps 3`, no `wifi_caps`) the controller pushes a
 U7PG2 WPA2 only and 40 MHz on 5 GHz. Changing capability words alone does not
@@ -581,7 +588,7 @@ own uplink). Once the switch reports the port down, the next meshed inform
 shows "wireless".
 
 After the cable is back, the `eth0` row carries `signal 0` so the stored
-uplink loses its mesh values (see `docs/stats.md`).
+uplink loses its mesh values (see [Ports](#ports-if_table-port_table)).
 
 ### Mesh Parent
 

@@ -59,7 +59,7 @@ uci set unifi-openwrt.main.enabled='1'; uci commit unifi-openwrt
 
 and click Adopt in the UniFi controller. Logs: `logread -e uow`.
 
-A full hostapd is recommended (802.11k/v, WPA-Enterprise, runtime deny list), but the
+A full hostapd is recommended (802.11k/v, runtime deny list), but the
 package does not require one. Every wpad/hostapd variant, basic or full, provides the
 same virtual names, so a dependency could only name one concrete variant. That would
 choose the TLS library for you and would conflict with the `wpad-basic-*` that images

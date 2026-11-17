@@ -102,7 +102,7 @@ Tested live on the device above unless marked otherwise.
 | UniFi feature | Status |
 |---|---|
 | Adoption, Remove, adopt again | works (SSH and inform-reply adoption) |
-| Firmware update | answered, **never applied** |
+| Firmware update | answered, **never applied**: nothing is downloaded; the offered version is reported so the controller stops asking (never offered in testing) |
 | Clients as wireless clients of the AP, with signal, rates, channel width | works |
 | Radio and VAP stats, channel use, interference, history graphs, CPU and memory | works |
 | Live updates (1 s informs while the panel is open) | works |
@@ -111,9 +111,11 @@ Tested live on the device above unless marked otherwise.
 | Radios: channel, width, transmit power, country | works |
 | Indoor / Outdoor | works (Country IE environment) |
 | Minimum RSSI, load balancing (max clients) | works |
-| WLANs: SSID, password, WPA2, WPA3, WPA2/WPA3, PMF, hidden, client isolation, U-APSD, DTIM | works |
+| WLANs: SSID, password, WPA2, WPA3, WPA2/WPA3, PMF, hidden, client isolation, U-APSD, DTIM | works (WPA3-only untested live) |
+| WPA-Enterprise (RADIUS), Enhanced Open (OWE), WEP, private pre-shared keys | not built: such a WLAN is left off, never opened with other security |
 | MAC filter (allow / deny) | works |
-| 802.11r, 802.11k (with a neighbour list of the UniFi's own APs), 802.11v | works; needs the full `wpad` |
+| 802.11k, 802.11v | works; needs the full `wpad`. The neighbour list is built from the AP's own scans: its own other-band BSSes and the same SSID on other APs of the LAN, genuine UniFi APs included |
+| 802.11r (fast transition) | switched on with OpenWrt's defaults, **untested live**. No key exchange with genuine UniFi APs, so a client moving between the two does a normal reconnect ([rrb-unifi](https://github.com/d-malinowski/unifi-openwrt-roaming) adds that exchange) |
 | Band steering | works (usteer, local mode) |
 | Minimum data rates | clamped: applied per radio, only when every WLAN on that radio asks for it |
 | WLAN schedules | works (enforced on the AP) |
@@ -123,7 +125,7 @@ Tested live on the device above unless marked otherwise.
 | VLANs (WLAN on a tagged network) | works |
 | Block, Unblock, Reconnect | works (immediate with `hostapd-utils`) |
 | Locate, LED on/off, Restart | works; Locate beeps on APs with a speaker |
-| LED colour and brightness | works when `hw_caps` is claimed (not on the AC Pro) |
+| LED colour and brightness | built, **untested live**: only offered when `hw_caps` is claimed (not on the AC Pro) |
 | Disable device | works |
 | IP settings (DHCP / static) | works; a static address other than the current one is refused |
 | Device SSH authentication | works (extra login, root untouched) |
@@ -135,6 +137,8 @@ Tested live on the device above unless marked otherwise.
 | Mesh Parent (choose the uplink AP) | built, **untested live** |
 | Serving mesh children, VLANs over mesh | not built |
 | Debug terminal, Support file | not built |
+| Discovery broadcast (the AP showing up by itself, before it has the controller's address) | not built: the AP is given the address |
+| Wired clients per port, LLDP, DFS radar events | not built |
 
 Technical notes for contributors are in [docs/](docs/):
 [docs/internals.md](docs/internals.md): protocol, config translation, stats,
@@ -146,7 +150,7 @@ portal and RF scan.
 - OpenWrt with `apk` or `opkg` (tested: 25.12). The daemon is a static Go
   binary of 8-10 MB: APs with 16 MB of flash usually do not have room.
 - **Full wpad** (`wpad-mbedtls`, `wpad-wolfssl` or `wpad-openssl`) instead of
-  `wpad-basic-*`: needed for 802.11k/v, RADIUS/802.1X and the runtime deny
+  `wpad-basic-*`: needed for 802.11k/v and the runtime deny
   list. Install it from the package feed; check with `--simulate` before
   removing the basic one.
 - `hostapd-utils` (immediate block/unblock), `kmod-nft-bridge` (guest
@@ -231,6 +235,16 @@ This project builds on the work of others:
   early descriptions of the inform protocol and `set-adopt`.
 - [OpenWrt](https://openwrt.org), with hostapd, iw, usteer and apk-tools, does
   the actual work on the access point.
+
+Similar projects:
+
+- [openUF](https://github.com/yesrab/openUF) (Lua, runs on the AP; continues
+  [jonasevcik/openUF](https://github.com/jonasevcik/openUF) and the original
+  [trueserve/openUF](https://github.com/trueserve/openUF)): the same goal,
+  with a guided installer, a LuCI app, discovery, WPA-Enterprise and more
+  tested boards.
+- [rrb-unifi](https://github.com/d-malinowski/unifi-openwrt-roaming): 802.11r
+  fast roaming between OpenWrt and genuine UniFi access points.
 
 Details and license texts are in [NOTICE](NOTICE).
 

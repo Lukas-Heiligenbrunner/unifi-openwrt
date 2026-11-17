@@ -29,8 +29,11 @@ Third-party material
    wifi_caps, wifi_caps2, radio caps) are the values recorded in its test
    harness for a real UAP-AC-Pro.
 
-No source code was copied from either project; both are credited for the
-data and documentation above. Their licence text:
+No source code was copied from either project. Their source was read next
+to their documentation, and parts of this code follow it in structure and
+naming (the reply handling in internal/device/session.go, the packet
+constants in internal/inform); it was written anew. Both are credited for
+that and for the data and documentation above. Their licence text:
 
    Permission is hereby granted, free of charge, to any person obtaining a copy
    of this software and associated documentation files (the "Software"), to deal
@@ -56,6 +59,8 @@ data and documentation above. Their licence text:
    License, Copyright 2009 The Go Authors. Their licence texts ship with
    the module sources (go mod download) and the Go distribution.
 
-Also credited, nothing taken: trueserve/openUF (the same goal, earlier),
+Also credited, nothing taken: trueserve/openUF (the same goal, earlier)
+and its continuations jonasevcik/openUF and yesrab/openUF,
+d-malinowski/unifi-openwrt-roaming (802.11r with genuine UniFi APs),
 amd989/unifi-gateway (an emulated UniFi gateway on OpenWrt),
 mcrute/ubntmfi and jk-5/unifi-inform-protocol (inform protocol write-ups).
