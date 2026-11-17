@@ -128,6 +128,28 @@ func (s *Snapshot) Fields(prev *Snapshot, info CfgInfo, caps map[string]RadioCap
 		}
 		m["port_table"] = rows
 		m["has_eth1"] = len(phys) > 1
+		// lldp_table: the neighbours lldpd hears, on the ports as numbered
+		// above. A neighbour on anything else (a bridge, a VLAN) is left out.
+		var lldp []map[string]any
+		for _, n := range s.LLDP {
+			for _, row := range rows {
+				if row["ifname"] != n.Port {
+					continue
+				}
+				e := map[string]any{"local_port_idx": row["port_idx"], "local_port_name": n.Port, "is_wired": true,
+					"chassis_id": n.ChassisID, "port_id": n.PortID}
+				if n.ChassisDes != "" {
+					e["chassis_descr"] = n.ChassisDes
+				}
+				if n.PortDescr != "" {
+					e["port_descr"] = n.PortDescr
+				}
+				lldp = append(lldp, e)
+			}
+		}
+		if lldp != nil {
+			m["lldp_table"] = lldp
+		}
 	}
 
 	var radios, rstats, vaps []map[string]any

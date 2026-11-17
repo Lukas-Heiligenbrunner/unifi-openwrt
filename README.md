@@ -142,8 +142,9 @@ Tested live on the device above unless marked otherwise.
 | Mesh Parent (choose the uplink AP) | built, **untested live** |
 | Serving mesh children, VLANs over mesh | not built |
 | Debug terminal, Support file | not built |
-| Discovery broadcast (the AP showing up by itself, before it has the controller's address) | not built: the AP is given the address |
-| LLDP, DFS radar events | not built |
+| LLDP neighbours (what is on the other end of each cable) | built, **untested live**; needs the optional `lldpd` package, which also announces the AP to the switch |
+| Discovery broadcast (the AP showing up by itself, before it has the controller's address) | not built: the AP is given the address. A controller that finds a device this way adopts it by logging in on its SSH port 22 as `ubnt`, which this project leaves alone |
+| DFS radar events | not built |
 
 Technical notes for contributors are in [docs/](docs/):
 [docs/internals.md](docs/internals.md): protocol, config translation, stats,
@@ -162,7 +163,7 @@ portal and RF scan.
   isolation).
 - Optional: `usteer` (band steering), `tc-tiny`, `kmod-sched-core`,
   `kmod-sched`, `kmod-ifb` (rate-limit shaping), `snmpd` (SNMP),
-  `alsa-utils` (Locate beep).
+  `alsa-utils` (Locate beep), `lldpd` (LLDP neighbours).
 - A UniFi controller on the same network that the AP can reach on port
   8080, and that can reach the AP's adoption SSH port (default 2222).
 

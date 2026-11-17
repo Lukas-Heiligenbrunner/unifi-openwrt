@@ -87,6 +87,11 @@ type Session struct {
 	// the last setparam and how often it was repeated unchanged
 	lastParam  [sha256.Size]byte
 	sameParams int
+	// Unhandled, when set, records what the controller sent that nothing
+	// here acted on. KnownSection tells which system_cfg sections the
+	// translator handles (nil = none are recorded).
+	Unhandled    *Ledger
+	KnownSection func(section string) bool
 	// Extra, when set, returns fields read from the real AP (radios, VAPs,
 	// clients, system); they replace the static U7PG2 defaults.
 	Extra func() map[string]any
@@ -230,7 +235,7 @@ func (x *Session) Handle(js []byte, now time.Time) (Outcome, error) {
 		o.Immediate = r.Immediate != 0
 		o.Events = append(o.Events, fmt.Sprintf("noop interval=%d immediate=%d", r.Interval, r.Immediate))
 	case "setparam":
-		x.setparam(r, &o)
+		x.setparam(r, now, &o)
 	case "upgrade":
 		x.upgrade(r.Version, r.URL, now, &o)
 	case "reboot":
@@ -241,10 +246,12 @@ func (x *Session) Handle(js []byte, now time.Time) (Outcome, error) {
 	case "setdefault":
 		x.setdefault(&o)
 	case "cmd":
-		x.cmd(r, now, &o)
+		x.cmd(r, js, now, &o)
 	default:
 		o.Events = append(o.Events, fmt.Sprintf("reply type %q: ignored", r.Type))
+		x.note("reply", r.Type, redactReply(js), now, &o)
 	}
+	x.noteUnread(js, r.Type, now, &o)
 	if strings.Contains(r.Cmd, "guest") {
 		o.Events = append(o.Events, "  raw reply: "+MaskHex(string(js)))
 	}
@@ -257,7 +264,7 @@ func (x *Session) Handle(js []byte, now time.Time) (Outcome, error) {
 	return o, nil
 }
 
-func (x *Session) setparam(r Reply, o *Outcome) {
+func (x *Session) setparam(r Reply, now time.Time, o *Outcome) {
 	var cv, authkey, gcm, informURL string
 	var keys []string
 	for _, line := range strings.Split(r.MgmtCfg, "\n") {
@@ -266,6 +273,9 @@ func (x *Session) setparam(r Reply, o *Outcome) {
 			continue
 		}
 		keys = append(keys, k)
+		if !mgmtKeys[k] {
+			x.note("mgmt_cfg", k, redactValue(k, v), now, o)
+		}
 		switch k {
 		case "cfgversion":
 			cv = v
@@ -338,6 +348,13 @@ func (x *Session) setparam(r Reply, o *Outcome) {
 		os.WriteFile(filepath.Join(hist, time.Now().Format("20060102-150405")+"-"+x.S.CfgVersion+".txt"), []byte(r.SystemCfg), 0o600)
 		pruneHistory(hist, HistoryKeep)
 		ev += fmt.Sprintf(" system_cfg %d bytes saved (not applied), sections=%v", len(r.SystemCfg), sections(r.SystemCfg))
+		if x.KnownSection != nil {
+			for _, sec := range sections(r.SystemCfg) {
+				if sec = strings.TrimSpace(sec); sec != "" && !strings.HasPrefix(sec, "#") && !x.KnownSection(sec) {
+					x.note("system_cfg", sec, "", now, o)
+				}
+			}
+		}
 	}
 	if r.BlockedSta != nil {
 		ev += fmt.Sprintf(" blocked_sta=%d", len(strings.Fields(*r.BlockedSta)))
@@ -411,7 +428,7 @@ func (x *Session) setdefault(o *Outcome) {
 	o.Events = append(o.Events, "setdefault: back to the factory key (the AP itself is not reset)")
 }
 
-func (x *Session) cmd(r Reply, now time.Time, o *Outcome) {
+func (x *Session) cmd(r Reply, js []byte, now time.Time, o *Outcome) {
 	switch r.Cmd {
 	case "set-adopt", "adopt":
 		if r.Key != "" {
@@ -507,6 +524,7 @@ func (x *Session) cmd(r Reply, now time.Time, o *Outcome) {
 		o.Events = append(o.Events, "cmd "+r.Cmd)
 	default:
 		o.Events = append(o.Events, fmt.Sprintf("cmd %q: ignored", r.Cmd))
+		x.note("cmd", r.Cmd, redactReply(js), now, o)
 	}
 }
 

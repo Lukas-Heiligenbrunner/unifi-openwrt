@@ -151,6 +151,7 @@ func main() {
 		Dev: inform.Device{MAC: mac, IP: myIP, Netmask: "255.255.255.0", Gateway: "192.168.1.1",
 			Hostname: *hostname, Model: profile.Model, ModelDisplay: profile.Display},
 	}
+	x.Unhandled, x.KnownSection = device.OpenLedger(filepath.Join(*stateDir, "unhandled.json")), translate.Handled
 	guestSession = x
 	if x.S.HashID == "" {
 		h, err := device.NewHashID()
@@ -394,6 +395,7 @@ func main() {
 		select {
 		case <-stop:
 			log.Printf("stopped by signal")
+			x.Unhandled.Flush()
 			return
 		case r := <-adoptReqs:
 			o := x.ApplyAdopt(r)

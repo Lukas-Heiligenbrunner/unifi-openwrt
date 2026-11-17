@@ -139,6 +139,7 @@ for e in $(ls /sys/class/net); do
   [ "${b##*/}" = br-lan ] && printf 'brport=%s\n' $(cat /sys/class/net/$e/brport/port_no)
 done
 echo "=== fdb"; hexdump -v -e '6/1 "%02x" 1/1 " %u" 1/1 " %u" 1/4 " %u" 1/1 " %u" 3/1 "" "\n"' /sys/class/net/br-lan/brforward 2>/dev/null
+echo "=== lldp"; lldpctl -f json0 2>/dev/null || true
 echo "=== lan"; ip -4 addr show br-lan; cat /sys/class/net/br-lan/address
 `
 
@@ -164,6 +165,7 @@ type Snapshot struct {
 	Ports    []Port
 	ARP      map[string]string // mac -> ip
 	FDB      []FDBEntry        // br-lan forwarding database
+	LLDP     []LLDPNeighbor    // what lldpd hears on the ports (empty without lldpd)
 	// UplinkName: the port that is always the uplink (-uplink-port, not
 	// read from the AP); empty = found from the gateway's FDB entry.
 	UplinkName string
@@ -327,6 +329,7 @@ func Parse(out []byte, now time.Time) (*Snapshot, error) {
 		}
 	}
 	s.FDB = parseFDB(secs.get("fdb"))
+	s.LLDP = parseLLDP(secs.get("lldp"))
 	// Group interfaces by phy: one radio per phy, its interfaces as VAPs.
 	var radios []Radio
 	idx := map[string]int{}

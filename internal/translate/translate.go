@@ -90,6 +90,10 @@ type Result struct {
 // handled lists system_cfg top-level sections the translator reads.
 var handled = map[string]bool{"qos": true, "bandsteering": true, "radio": true, "aaa": true, "wireless": true, "system": true, "locale": true, "ntpclient": true, "macacl": true, "users": true, "netconf": true, "dhcpc": true, "route": true, "resolv": true, "syslog": true, "ledbar": true, "snmp": true, "stamgr": true, "vlan": true, "bridge": true}
 
+// Handled reports whether a system_cfg section (the part of a key before
+// the first dot) is translated.
+func Handled(section string) bool { return handled[section] }
+
 // Features is what the AP's software supports (see openwrt.Client.Features).
 type Features struct {
 	APAddr  string // address the daemon reaches the AP on (static IPs must keep it)

@@ -123,6 +123,18 @@ controller shows it as connected.
   `unauthorize-guest`, `scan`, `spectrum-scan`, `reboot`, `setdefault`.
 - Top-level `_type` `reboot`, `setdefault`, `upgrade`.
 
+**What nothing acts on is listed.** A reply `_type` or `cmd` the daemon
+does not know, a reply field or `mgmt_cfg` key it does not read, and a
+`system_cfg` section the translator does not handle are kept in
+`unhandled.json` in the state directory (on the AP:
+`/etc/unifi-openwrt/state/unhandled.json`, mode 600): kind, name, count,
+first and last seen, and the first one as a sample. The sample never holds a
+configuration body or the value of anything named like a secret (key,
+password, token, ...). The file is the to-do list for a new controller
+version: at most 100 entries, a new one written at once and logged
+(`unhandled ... (first time)`), repeat counts once an hour. Within a
+handled `system_cfg` section single keys are not tracked.
+
 **`upgrade` is never applied.** Ubiquiti firmware would brick an OpenWrt
 device. The daemon downloads nothing; it reports the requested version and
 resets its uptime (a faked reboot, as unifi-emu does), so the controller
@@ -316,6 +328,14 @@ the in-wall models (U6-IW, U6-Enterprise-IW, AC-IW, ...) do, the AC Pro
 does not. For those it walks each non-uplink port (`lTGxQKc`) and lists the
 MACs as wired clients on that port; a network matches a row by `vlan`
 (default 1). The FDB carries no VLAN, so every row says 1, the untagged LAN.
+
+`lldp_table` holds the LLDP neighbours when the optional `lldpd` runs on the
+AP (`lldpctl -f json0`; the older keyed `-f json` form is read too): per
+neighbour `local_port_idx` (the `port_idx` above), `local_port_name`,
+`is_wired`, `chassis_id`, `chassis_descr`, `port_id`, `port_descr`. A
+neighbour heard on anything but a reported port is left out. Sending the
+AP's own LLDP frames is lldpd's work, not the daemon's. Not tested against
+a live lldpd or controller yet.
 
 ### System
 
