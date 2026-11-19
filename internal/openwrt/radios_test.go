@@ -143,3 +143,25 @@ func TestHT160(t *testing.T) {
 		t.Errorf("has_ht160 by band = %v, want na only", got)
 	}
 }
+
+// Channel use is the change of a radio's own survey counters. On a
+// multi-radio wiphy the radios share one phy, so the earlier snapshot's radio
+// is found by wifi-device, not by phy.
+func TestChannelUseMultiRadioWiphy(t *testing.T) {
+	snap := func(a2, b2, a5, b5 int64) *Snapshot {
+		return &Snapshot{Radios: []Radio{
+			{Phy: "wl0", Section: "radio2", Band: "ng", Channel: 3, Survey: Survey{Active: a2, Busy: b2}},
+			{Phy: "wl0", Section: "radio1", Band: "na", Channel: 36, Survey: Survey{Active: a5, Busy: b5}},
+		}}
+	}
+	prev, cur := snap(1000, 100, 50000, 40000), snap(2000, 200, 51000, 40500)
+	rt := cur.Fields(prev, CfgInfo{}, nil)["radio_table"].([]map[string]any)
+	if len(rt) != 2 {
+		t.Fatalf("radio_table = %v", rt)
+	}
+	for i, want := range []int{10, 50} {
+		if got := rt[i]["athstats"].(map[string]any)["cu_total"]; got != want {
+			t.Errorf("radio %d (%v): cu_total = %v, want %d", i, rt[i]["radio"], got, want)
+		}
+	}
+}

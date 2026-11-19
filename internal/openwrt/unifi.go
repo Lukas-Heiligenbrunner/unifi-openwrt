@@ -178,7 +178,7 @@ func (s *Snapshot) Fields(prev *Snapshot, info CfgInfo, caps map[string]RadioCap
 		}
 		cuTotal, cuRx, cuTx := 0, 0, 0
 		if prev != nil {
-			if pr := prev.radio(r.Phy); pr != nil {
+			if pr := prev.radio(r); pr != nil {
 				if d := r.Survey.Active - pr.Survey.Active; d > 0 {
 					cuTotal = pct(r.Survey.Busy-pr.Survey.Busy, d)
 					cuRx = pct(r.Survey.Rx-pr.Survey.Rx, d)
@@ -318,12 +318,19 @@ func (s *Snapshot) Fields(prev *Snapshot, info CfgInfo, caps map[string]RadioCap
 	return m
 }
 
-func (s *Snapshot) radio(phy string) *Radio {
-	if phy == "" {
-		return nil // a wifi-device with no interface up
+// radio is the same radio in another snapshot: by wifi-device section when
+// it has one (a multi-radio wiphy has several radios on one phy), else by phy.
+func (s *Snapshot) radio(r Radio) *Radio {
+	for i := range s.Radios {
+		if r.Section != "" && s.Radios[i].Section == r.Section {
+			return &s.Radios[i]
+		}
+	}
+	if r.Section != "" || r.Phy == "" {
+		return nil // not there before, or a wifi-device with no interface up
 	}
 	for i := range s.Radios {
-		if s.Radios[i].Phy == phy {
+		if s.Radios[i].Phy == r.Phy {
 			return &s.Radios[i]
 		}
 	}
