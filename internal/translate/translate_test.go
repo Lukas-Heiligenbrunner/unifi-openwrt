@@ -331,3 +331,45 @@ func TestUnsupportedSecurityStaysOff(t *testing.T) {
 		t.Errorf("no mgmt: %q", enc)
 	}
 }
+
+func TestTxPowerMode(t *testing.T) {
+	// radio0 (wifi0) currently has txpower 23 in `cur`
+	rng := map[string][2]int{"wifi0": {6, 20}}
+	for _, c := range []struct {
+		name, lines string
+		tx          map[string][2]int
+		want        string // "" = txpower deleted
+		note        bool
+	}{
+		{"medium", "mode=medium\nradio.1.txpower=auto", rng, "14", false},
+		{"low", "mode=low\nradio.1.txpower=auto", rng, "8", false},
+		{"low clamps to min", "mode=low\nradio.1.txpower=auto", map[string][2]int{"wifi0": {10, 20}}, "10", false},
+		{"clamps to 1", "mode=low\nradio.1.txpower=auto", map[string][2]int{"wifi0": {0, 8}}, "1", false},
+		{"custom", "mode=custom\nradio.1.txpower=10", rng, "10", false},
+		{"high", "mode=high\nradio.1.txpower=auto", rng, "", false},
+		{"auto", "mode=auto\nradio.1.txpower=auto", rng, "", false},
+		{"no mode, auto", "radio.1.txpower=auto", rng, "", false},
+		{"legacy numeric", "radio.1.txpower=12", rng, "12", false},
+		{"stale numeric ignored in medium", "mode=medium\nradio.1.txpower=23", rng, "14", false},
+		{"medium, unknown max: maximum + note", "mode=medium\nradio.1.txpower=auto", nil, "", true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			l := strings.ReplaceAll(c.lines, "mode=", "radio.1.txpower_mode=")
+			// drop the base cfg's own radio.1.txpower line
+			base := strings.Replace(cfg, "radio.1.txpower=23\n", "", 1)
+			r := Plan(ParseCfg(base+l+"\n"), ParseUCI(cur), Features{TxPower: c.tx})
+			got, deleted := "", false
+			for _, op := range r.Ops {
+				if op.Key == "wireless.radio0.txpower" {
+					got, deleted = op.Value, op.Del
+				}
+			}
+			if c.want == "" && !deleted || c.want != "" && got != c.want {
+				t.Errorf("txpower = %q (deleted %v), want %q; ops %v", got, deleted, c.want, r.Ops)
+			}
+			if c.note != strings.Contains(strings.Join(r.Notes, "\n"), "txpower") {
+				t.Errorf("note mismatch: %v", r.Notes)
+			}
+		})
+	}
+}
