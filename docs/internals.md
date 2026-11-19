@@ -664,6 +664,11 @@ interface on the same radio the driver keeps the AP firmware and the link
 passes traffic. A WLAN on 5 GHz next to the uplink gives exactly that; a
 site with no 5 GHz WLAN on such an AP would have a dead mesh link.
 
+Reported on `ath12k` (TP-Link Archer BE800, OpenWrt snapshot): the uplink
+associates with `4addr: on` and a good signal, but almost every data frame
+fails and netifd logs `Not supported (-95)` when the station starts. It looks
+like a limit of the driver's 4-address station mode.
+
 ### Mesh Parent
 
 The device's `mesh_uplink_1` / `mesh_uplink_2` arrive as `mesh.serial1/2`.

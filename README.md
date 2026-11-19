@@ -33,7 +33,7 @@ So this repo does two things:
   [docs/internals.md](docs/internals.md), so it can be checked, ported to other devices, or carried
   on by anyone.
 
-> **Tested on three devices only**, listed under
+> **Tested on four devices only**, listed under
 > [Tested devices](#tested-devices). Other OpenWrt devices, other UniFi
 > models and other controller versions are **best effort**: they may work,
 > they have not been tried. Reports are welcome.
@@ -102,6 +102,7 @@ pending; OpenWrt and its Wi-Fi are not reset), then
 | [Google OnHub (TP-Link TGR1900)](https://openwrt.org/inbox/toh/google/onhub_tp-link_tgr1900) | Qualcomm IPQ8064, Wi-Fi 5 | 25.12.6 | UAP-AC-Pro (`U7PG2`) | [@antoniocosta](https://github.com/antoniocosta) | everything under [What works](#what-works) unless marked otherwise, with UniFi Network 10.6 on a UniFi Express 7 |
 | [Linksys LN1301 (MX4300)](https://openwrt.org/toh/linksys/mx4300) | Qualcomm IPQ8174 (`ath11k`), Wi-Fi 6, one 2.4 GHz and two 5 GHz radios | 25.12.6 | U6-IW | [@dohun0310](https://github.com/dohun0310) | wired, as an AP and small switch: package install and adoption, all three radios, the 160 MHz option, wired clients on the LAN ports, in-wall port numbering |
 | [Linksys E4200 v2](https://openwrt.org/toh/hwdata/linksys/linksys_e4200_v2) | Marvell Kirkwood, 2x 88W8366 (`mwl8k`), Wi-Fi 4 | 23.05.6 | not reported | [@rbferreira](https://github.com/rbferreira) | package install, SSH adoption with the controller on another address, the rollback timer, mesh uplink to a UniFi AP |
+| [TP-Link Archer BE800](https://forum.openwrt.org/t/openwrt-for-tp-link-be800/227055) | Qualcomm IPQ9574 (`ath12k`), Wi-Fi 7, one phy for 2.4, 5 and 6 GHz | snapshot | U7 Pro (`U7PRO`) | [@Kelon5212001](https://github.com/Kelon5212001) | adoption, all three radios, WLANs applied. Tested on 0.2.0 plus the fixes; confirmation on the merged code is pending. The mesh uplink joins but does not pass traffic (driver limit) |
 
 Running it on another device? Open an issue or a pull request with the
 device, the OpenWrt version, the UniFi model and what you tested, and it
@@ -148,7 +149,7 @@ Tested live on the OnHub unless marked otherwise (see [Tested devices](#tested-d
 | Remote syslog, including UniFi's encrypted syslog | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
 | SNMP v1/v2c | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works; SNMPv3 not built (OpenWrt's snmpd is built without SSL) |
 | RF scan, neighbour scan, rogue AP list | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (a spare radio is used when there is one) |
-| Mesh: wireless uplink when the cable is out | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works; never cable and mesh at once. On `mwl8k` radios (Marvell 88W8366) the uplink passes traffic only while the 5 GHz radio also carries a WLAN |
+| Mesh: wireless uplink when the cable is out | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works; never cable and mesh at once. On `mwl8k` radios (Marvell 88W8366) the uplink passes traffic only while the 5 GHz radio also carries a WLAN. On `ath12k` (reported on a TP-Link Archer BE800, OpenWrt snapshot) the uplink joins but almost no data gets through |
 | Mesh Parent (choose the uplink AP) | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> built, **untested live** |
 | Serving mesh children, VLANs over mesh | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> not built |
 | Debug terminal, Support file | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> not built |
@@ -261,6 +262,9 @@ Contributors:
 - [@rbferreira](https://github.com/rbferreira): the rollback timer without
   `setsid`, adoption from the inform address and the mesh parent lookup,
   tested on a Linksys E4200 v2.
+- [@Kelon5212001](https://github.com/Kelon5212001): radios that share one
+  phy (`ath12k`) and the mesh watcher's cable check, tested on a TP-Link
+  Archer BE800.
 
 Similar projects:
 
