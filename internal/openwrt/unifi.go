@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/antoniocosta/unifi-openwrt/internal/models"
 	"github.com/antoniocosta/unifi-openwrt/internal/translate"
+	"net"
 	"sort"
 	"strings"
 	"sync"
@@ -217,7 +218,7 @@ func (s *Snapshot) Fields(prev *Snapshot, info CfgInfo, caps map[string]RadioCap
 				// Its SSID is the vwire one, whose devname is the downlink VAP's.
 				vname = fmt.Sprintf("ath%d", nextAth-1)
 				m["uplink"] = vname
-				vaps = append(vaps, uplinkVAP(vname, name, r, v, s.neighbours()))
+				vaps = append(vaps, uplinkVAP(vname, name, r, v, s.Neighbours()))
 				continue
 			}
 			guest := info.GuestVAP[vname]
@@ -677,10 +678,10 @@ func uplinkVAP(vname, radioName string, r, v Radio, neigh map[string]string) map
 	return row
 }
 
-// neighbours: the MACs the AP knows on its LAN, from the ARP table and from
+// Neighbours: the MACs the AP knows on its LAN, from the ARP table and from
 // the br-lan forwarding database. A mesh child never talks IP to its parent
 // AP, so the parent's own MAC is often only in the forwarding database.
-func (s *Snapshot) neighbours() map[string]string {
+func (s *Snapshot) Neighbours() map[string]string {
 	out := make(map[string]string, len(s.ARP)+len(s.FDB))
 	for _, e := range s.FDB {
 		if !e.Local {
@@ -693,18 +694,40 @@ func (s *Snapshot) neighbours() map[string]string {
 	return out
 }
 
-// parentDevice finds the parent AP's own MAC among the neighbours: UniFi VAP
-// BSSIDs keep the device MAC's middle four bytes (5e:11:22:33:44:04 is a VAP of
-// 40:11:22:33:44:01). Exactly one match, or nothing.
+// bssidOfDevice reports whether bssid can be a BSSID of the device with MAC
+// mac. A device derives its BSSIDs from its MAC: b[0] is free (locally
+// administered and index bits), b[1] and b[2] are the MAC's, and of b[3],
+// b[4], b[5] at most one differs, raised by 1-15 (mod 256). As a
+// controller's vap_table lists them (addresses made up, patterns kept):
+//
+//	UAP-AC-Pro 48:a1:01:13:27:5c: 48:a1:01:14:27:5c, 52:a1:01:14:27:5c (b[3])
+//	U7 Lite    70:e5:f6:47:9c:3a: 76:e5:f6:47:9c:3b, 7a:e5:f6:47:9c:3b (b[5])
+//	OpenWrt    08:7a:6b:5c:4d:e1: 08:7a:6b:5c:4d:e2, 0a:7a:6b:5c:4d:e3 (b[5])
+func bssidOfDevice(bssid, mac string) bool {
+	b, err1 := net.ParseMAC(bssid)
+	m, err2 := net.ParseMAC(mac)
+	if err1 != nil || err2 != nil || len(b) != 6 || len(m) != 6 || b[1] != m[1] || b[2] != m[2] {
+		return false
+	}
+	raised := 0
+	for i := 3; i < 6; i++ {
+		if d := b[i] - m[i]; d > 15 {
+			return false
+		} else if d > 0 {
+			raised++
+		}
+	}
+	return raised <= 1
+}
+
+// parentDevice finds the device MAC a BSSID belongs to among the LAN
+// devices (bssidOfDevice). Exactly one match, or nothing.
 func parentDevice(bssid string, neigh map[string]string) string {
 	b := strings.ToLower(bssid)
-	if len(b) != 17 {
-		return ""
-	}
 	found := ""
 	for mac := range neigh {
 		m := strings.ToLower(mac)
-		if len(m) == 17 && m != b && m[3:14] == b[3:14] {
+		if m != b && bssidOfDevice(b, m) {
 			if found != "" && found != m {
 				return ""
 			}
