@@ -657,6 +657,13 @@ shows "wireless".
 After the cable is back, the `eth0` row carries `signal 0` so the stored
 uplink loses its mesh values (see [Ports](#ports-if_table-port_table)).
 
+Reported on `mwl8k` (Marvell 88W8366, which has separate station and AP
+firmware): a 4-address client alone on the radio associates and completes
+the WPA handshake, but received frames never reach the interface. With an AP
+interface on the same radio the driver keeps the AP firmware and the link
+passes traffic. A WLAN on 5 GHz next to the uplink gives exactly that; a
+site with no 5 GHz WLAN on such an AP would have a dead mesh link.
+
 ### Mesh Parent
 
 The device's `mesh_uplink_1` / `mesh_uplink_2` arrive as `mesh.serial1/2`.
