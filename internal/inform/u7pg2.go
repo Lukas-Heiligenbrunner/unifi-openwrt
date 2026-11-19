@@ -137,7 +137,10 @@ func DefaultU7PG2Radios() []Radio {
 // carries a literal; a controller with "Override inform host" may send a
 // name, which is looked up (cached for five minutes; a failed lookup keeps
 // the last answer).
-func informIP(u string) (string, error) {
+func informIP(u string) (string, error) { return InformIP(u) }
+
+// InformIP is informIP for other packages (the SSH adoption allow list).
+func InformIP(u string) (string, error) {
 	h := hostOf(u)
 	if ip := net.ParseIP(h); ip != nil {
 		if ip.To4() == nil {
