@@ -35,6 +35,7 @@ import (
 // AdoptRequest is what set-adopt delivered.
 type AdoptRequest struct {
 	URL, Key string
+	Peer     string // the SSH client's IP (the controller)
 }
 
 type SSHAdopt struct {
@@ -98,7 +99,7 @@ func (s *SSHAdopt) Start() error {
 				c.Close()
 				continue
 			}
-			go s.serve(c, cfg)
+			go s.serve(c, cfg, host)
 		}
 	}()
 	return nil
@@ -116,7 +117,7 @@ func (s *SSHAdopt) Close() {
 	}
 }
 
-func (s *SSHAdopt) serve(c net.Conn, cfg *ssh.ServerConfig) {
+func (s *SSHAdopt) serve(c net.Conn, cfg *ssh.ServerConfig, peer string) {
 	defer c.Close()
 	c.SetDeadline(time.Now().Add(2 * time.Minute))
 	_, chans, reqs, err := ssh.NewServerConn(c, cfg)
@@ -134,11 +135,11 @@ func (s *SSHAdopt) serve(c net.Conn, cfg *ssh.ServerConfig) {
 		if err != nil {
 			continue
 		}
-		go s.session(ch, in)
+		go s.session(ch, in, peer)
 	}
 }
 
-func (s *SSHAdopt) session(ch ssh.Channel, in <-chan *ssh.Request) {
+func (s *SSHAdopt) session(ch ssh.Channel, in <-chan *ssh.Request, peer string) {
 	defer ch.Close()
 	for req := range in {
 		switch req.Type {
@@ -146,7 +147,7 @@ func (s *SSHAdopt) session(ch ssh.Channel, in <-chan *ssh.Request) {
 			var p struct{ Cmd string }
 			ssh.Unmarshal(req.Payload, &p)
 			req.Reply(true, nil)
-			s.command(p.Cmd)
+			s.command(p.Cmd, peer)
 			ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
 			return
 		case "shell":
@@ -155,7 +156,7 @@ func (s *SSHAdopt) session(ch ssh.Channel, in <-chan *ssh.Request) {
 			buf, _ := io.ReadAll(io.LimitReader(ch, 64<<10))
 			for _, line := range strings.Split(string(buf), "\n") {
 				if strings.TrimSpace(line) != "" {
-					s.command(line)
+					s.command(line, peer)
 				}
 			}
 			ch.SendRequest("exit-status", false, ssh.Marshal(struct{ Status uint32 }{0}))
@@ -166,15 +167,15 @@ func (s *SSHAdopt) session(ch ssh.Channel, in <-chan *ssh.Request) {
 	}
 }
 
-func (s *SSHAdopt) command(cmd string) {
+func (s *SSHAdopt) command(cmd, peer string) {
 	if m := setAdoptRE.FindStringSubmatch(cmd); m != nil {
 		log.Printf("ssh-adopt: set-adopt url=%s key=<masked>", m[1])
-		s.Requests <- AdoptRequest{URL: m[1], Key: strings.ToLower(m[2])}
+		s.Requests <- AdoptRequest{URL: m[1], Key: strings.ToLower(m[2]), Peer: peer}
 		return
 	}
 	if m := setInfRE.FindStringSubmatch(cmd); m != nil {
 		log.Printf("ssh-adopt: set-inform url=%s", m[1])
-		s.Requests <- AdoptRequest{URL: m[1]}
+		s.Requests <- AdoptRequest{URL: m[1], Peer: peer}
 		return
 	}
 	log.Printf("ssh-adopt: command ignored: %q", maskHex(cmd))
@@ -216,7 +217,7 @@ func loadOrCreateHostKey(path string) (ssh.Signer, error) {
 func (x *Session) ApplyAdopt(r AdoptRequest) Outcome {
 	o := Outcome{Changed: true, Immediate: true}
 	if r.URL != "" {
-		x.S.InformURL = r.URL
+		x.setInformURL(r.URL, r.Peer)
 	}
 	if r.Key != "" {
 		x.S.Key = r.Key

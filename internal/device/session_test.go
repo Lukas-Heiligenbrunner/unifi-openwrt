@@ -5,6 +5,7 @@ package device
 import (
 	"encoding/json"
 	"net"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -111,12 +112,19 @@ func TestStateRoundTrip(t *testing.T) {
 	x := newSession(t)
 	p := x.StateDir + "/state.json"
 	x.S.Key = newKey
+	x.S.InformAddr = map[string]string{"unifi.home.example": "192.168.0.14"}
 	if err := x.S.Save(p); err != nil {
 		t.Fatal(err)
 	}
 	s, ok, err := Load(p)
-	if err != nil || !ok || s.Key != newKey {
+	if err != nil || !ok || s.Key != newKey || s.InformAddr["unifi.home.example"] != "192.168.0.14" {
 		t.Fatalf("load: %+v %v %v", s, ok, err)
+	}
+	// a state file from before inform_addr
+	os.WriteFile(p, []byte(`{"key":"`+newKey+`","adopted":true,"inform_url":"http://192.168.1.1:8080/inform"}`), 0o600)
+	s, ok, err = Load(p)
+	if err != nil || !ok || !s.Adopted || s.InformAddr != nil {
+		t.Fatalf("old state: %+v %v %v", s, ok, err)
 	}
 }
 
@@ -137,10 +145,43 @@ func TestApplyAdoptAndSSHPort(t *testing.T) {
 
 func TestSetAdoptParse(t *testing.T) {
 	s := &SSHAdopt{Requests: make(chan AdoptRequest, 1)}
-	s.command("/usr/bin/syswrapper.sh set-adopt http://192.168.1.1:8080/inform " + newKey)
+	s.command("/usr/bin/syswrapper.sh set-adopt http://192.168.1.1:8080/inform "+newKey, "192.168.1.1")
 	r := <-s.Requests
-	if r.URL != "http://192.168.1.1:8080/inform" || r.Key != newKey {
+	if r.URL != "http://192.168.1.1:8080/inform" || r.Key != newKey || r.Peer != "192.168.1.1" {
 		t.Fatalf("%+v", r)
+	}
+}
+
+// set-adopt to a host name ("Override inform host"): the SSH peer is the
+// controller, kept as that name's address for an AP that cannot resolve
+// it (OpenWrt's dnsmasq drops answers with private addresses).
+func TestApplyAdoptLearnsInformAddr(t *testing.T) {
+	x := newSession(t)
+	x.ApplyAdopt(AdoptRequest{URL: "http://unifi.home.example:8080/inform", Key: newKey, Peer: "192.168.0.14"})
+	if a := x.S.InformAddr["unifi.home.example"]; a != "192.168.0.14" {
+		t.Errorf("learned %q, want the SSH peer", a)
+	}
+	// SSH forwarded through the AP: the peer is the AP itself, so the
+	// address the previous inform URL reached is taken instead.
+	x = newSession(t)
+	x.ApplyAdopt(AdoptRequest{URL: "http://unifi.test:8080/inform", Key: newKey, Peer: x.Dev.IP})
+	if a := x.S.InformAddr["unifi.test"]; a != "192.168.1.1" {
+		t.Errorf("learned %q, want the previous inform address", a)
+	}
+	x = newSession(t)
+	x.ApplyAdopt(AdoptRequest{URL: "http://192.168.0.14:8080/inform", Key: newKey, Peer: "192.168.0.14"})
+	if x.S.InformAddr != nil {
+		t.Errorf("learned %v for an IP literal", x.S.InformAddr)
+	}
+}
+
+// mgmt_cfg moves the inform URL to a name: the controller has just
+// answered at the previous address, so that is the name's address.
+func TestInformURLNameFromMgmtCfgLearnsAddr(t *testing.T) {
+	x := newSession(t)
+	handle(t, x, `{"_type":"setparam","mgmt_cfg":"cfgversion=1\ninform_url=http://unifi.test:8080/inform\n"}`)
+	if x.S.InformURL != "http://unifi.test:8080/inform" || x.S.InformAddr["unifi.test"] != "192.168.1.1" {
+		t.Fatalf("inform_url %q, learned %v", x.S.InformURL, x.S.InformAddr)
 	}
 }
 

@@ -22,6 +22,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"flag"
 	"fmt"
 	"github.com/antoniocosta/unifi-openwrt/internal/models"
@@ -174,6 +175,9 @@ func main() {
 	if !found {
 		st = device.NewState(*informURL)
 		st.Version = profile.Version
+	}
+	for h, ip := range st.InformAddr {
+		inform.SetInformAddr(h, ip)
 	}
 	myIP, err := localIPToward(st.InformURL)
 	if err != nil {
@@ -332,7 +336,11 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
 
-	client := &http.Client{Timeout: 10 * time.Second}
+	// The inform POST dials the address inform_ip reports (for a host name
+	// the AP cannot resolve: the controller address learned at adoption).
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.DialContext = inform.DialContext
+	client := &http.Client{Timeout: 10 * time.Second, Transport: tr}
 	interval := 10 * time.Second
 	errs := 0
 	lastListing := ""
@@ -568,7 +576,8 @@ func netSig(ops []translate.Op) string {
 	return strings.Join(l, "\n")
 }
 
-// reachable: a TCP connection to the controller's inform port opens.
+// reachable: a TCP connection to the controller's inform port opens (to
+// the address the inform POST uses, see inform.DialContext).
 func reachable(informURL string) error {
 	u, err := url.Parse(informURL)
 	if err != nil || u.Host == "" {
@@ -578,7 +587,9 @@ func reachable(informURL string) error {
 	if u.Port() == "" {
 		host = net.JoinHostPort(u.Hostname(), "80")
 	}
-	c, err := net.DialTimeout("tcp", host, 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, err := inform.DialContext(ctx, "tcp", host)
 	if err != nil {
 		return err
 	}
@@ -586,11 +597,9 @@ func reachable(informURL string) error {
 }
 
 func localIPToward(informURL string) (string, error) {
-	host := strings.TrimPrefix(informURL, "http://")
-	host, _, _ = strings.Cut(host, "/")
-	h, _, err := net.SplitHostPort(host)
+	h, err := inform.InformIP(informURL)
 	if err != nil {
-		h = host
+		return "", err
 	}
 	c, err := net.Dial("udp4", net.JoinHostPort(h, "9"))
 	if err != nil {

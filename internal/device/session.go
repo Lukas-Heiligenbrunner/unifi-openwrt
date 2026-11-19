@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -41,6 +42,9 @@ type State struct {
 	GuestToken string           `json:"guest_token,omitempty"` // portal cookie key (32 hex), sent in informs; secret
 	HashID     string           `json:"hash_id,omitempty"`     // device hash (16 hex), sent in informs; names us in encrypted syslog
 	SystemCfgN int              `json:"system_cfg_bytes"`
+	// InformAddr: the controller's IPv4 per inform host name, learned when
+	// the inform URL moved to that name; used while the AP cannot resolve it.
+	InformAddr map[string]string `json:"inform_addr,omitempty"`
 }
 
 func NewState(informURL string) State {
@@ -307,7 +311,7 @@ func (x *Session) setparam(r Reply, now time.Time, o *Outcome) {
 	if informURL != "" && informURL != x.S.InformURL {
 		if u, err := url.Parse(informURL); err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Hostname() != "" {
 			ev += fmt.Sprintf(" inform_url %s -> %s", x.S.InformURL, informURL)
-			x.S.InformURL = informURL
+			x.setInformURL(informURL, "")
 			o.Changed = true
 		} else {
 			ev += fmt.Sprintf(" (ignored a malformed inform_url %q)", informURL)
@@ -399,6 +403,42 @@ func sections(cfg string) []string {
 	return out
 }
 
+// setInformURL moves to a new inform URL. When its host is a name, the
+// controller's address is kept for it, for an AP that cannot resolve the
+// name (OpenWrt's dnsmasq drops answers with private addresses): the SSH
+// peer that sent set-adopt, else the address of the current URL, where
+// the controller has just been reached.
+func (x *Session) setInformURL(u, peer string) {
+	old := x.S.InformURL
+	x.S.InformURL = u
+	host := urlHost(u)
+	if host == "" || net.ParseIP(host) != nil {
+		return
+	}
+	addr := ""
+	// a peer that is the AP itself is console SSH forwarded through it
+	if ip := net.ParseIP(peer).To4(); ip != nil && ip.String() != x.Dev.IP {
+		addr = ip.String()
+	} else if host != urlHost(old) {
+		addr, _ = inform.InformIP(old)
+	}
+	if addr == "" {
+		return
+	}
+	if x.S.InformAddr == nil {
+		x.S.InformAddr = map[string]string{}
+	}
+	x.S.InformAddr[host] = addr
+	inform.SetInformAddr(host, addr)
+}
+
+func urlHost(u string) string {
+	if p, err := url.Parse(u); err == nil {
+		return p.Hostname()
+	}
+	return ""
+}
+
 func (x *Session) upgrade(version, url string, now time.Time, o *Outcome) {
 	// Never download or apply anything. Report the target version and fake
 	// a reboot so the controller does not loop on the upgrade.
@@ -436,7 +476,7 @@ func (x *Session) cmd(r Reply, js []byte, now time.Time, o *Outcome) {
 			x.S.Adopted = true
 		}
 		if r.URI != "" {
-			x.S.InformURL = r.URI
+			x.setInformURL(r.URI, "")
 		}
 		o.Changed = true
 		o.Immediate = true
