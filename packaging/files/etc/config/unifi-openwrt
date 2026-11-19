@@ -28,3 +28,6 @@ config unifi 'main'
 	# port that is always the uplink, e.g. 'wan' (empty = the port the gateway
 	# is behind, else the first lan port with link)
 	option uplink_port ''
+	# extra source IP allowed to adopt over SSH; the controller in inform_url is
+	# always allowed, so this is only needed when another host does the SSH
+	#option console '192.168.1.1'

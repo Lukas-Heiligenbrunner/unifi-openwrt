@@ -39,6 +39,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -260,6 +261,8 @@ func main() {
 		}
 	}
 	var adoptReqs chan device.AdoptRequest
+	var liveInformURL atomic.Value // string: x.S.InformURL for the SSH goroutine
+	liveInformURL.Store(x.S.InformURL)
 	if *sshListen != "" {
 		_, port, err := net.SplitHostPort(*sshListen)
 		if err != nil {
@@ -275,14 +278,22 @@ func main() {
 		if snap != nil {
 			allow = append(allow, snap.IP) // console SSH forwarded through the AP
 		}
+		// set-adopt and mgmt_cfg move the inform URL at runtime (and the
+		// state keeps it): the session's current inform host is allowed too,
+		// a name looked up as for inform_ip (liveInformURL is kept current
+		// by the main loop).
 		sa := &device.SSHAdopt{Listen: *sshListen, AllowFrom: allow,
+			AllowFunc: func(host string) bool {
+				ip, err := inform.InformIP(liveInformURL.Load().(string))
+				return err == nil && ip == host
+			},
 			HostKey: filepath.Join(*stateDir, "ssh_host_ed25519.pem"), Requests: make(chan device.AdoptRequest, 4)}
 		if err := sa.Start(); err != nil {
 			log.Fatalf("ssh-adopt: %v", err)
 		}
 		defer sa.Close()
 		adoptReqs = sa.Requests
-		log.Printf("ssh-adopt listening on %s (only from %v), reported as sshd_port=%d", *sshListen, allow, x.SSHPort)
+		log.Printf("ssh-adopt listening on %s (only from %v + current inform host), reported as sshd_port=%d", *sshListen, allow, x.SSHPort)
 	}
 	log.Printf("start: mac=%s ip=%s adopted=%v gcm=%v cfgversion=%s version=%s (state %s)",
 		mac, myIP, x.S.Adopted, x.S.GCM, x.S.CfgVersion, x.S.Version, map[bool]string{true: "loaded", false: "new"}[found])
@@ -329,6 +340,7 @@ func main() {
 	var lastBan time.Time
 	for {
 		cfgBefore := x.S.CfgVersion
+		liveInformURL.Store(x.S.InformURL)
 		next, ok := informOnce(x, client, statePath)
 		if ok && !ledStarted {
 			ledStarted = true
@@ -439,6 +451,7 @@ func main() {
 			return
 		case r := <-adoptReqs:
 			o := x.ApplyAdopt(r)
+			liveInformURL.Store(x.S.InformURL)
 			for _, e := range o.Events {
 				log.Print(e)
 			}

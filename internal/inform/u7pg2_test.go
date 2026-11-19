@@ -114,3 +114,9 @@ var requiredPendingFields = []string{
 	"_default_key", "state", "fw_caps", "isolated", "locating", "selfrun_beacon",
 	"radio_table",
 }
+
+func TestInformIPExported(t *testing.T) {
+	if ip, err := InformIP("http://192.168.0.14:8080/inform"); err != nil || ip != "192.168.0.14" {
+		t.Fatalf("%q %v", ip, err)
+	}
+}

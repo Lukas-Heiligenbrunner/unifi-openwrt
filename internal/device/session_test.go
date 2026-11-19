@@ -186,3 +186,24 @@ func TestRepeatedSetparamStopsHurrying(t *testing.T) {
 		t.Error("a new setparam must be answered right away")
 	}
 }
+
+// The console that adopts is the one we inform to, so its address is
+// allowed without configuration; everyone else is still refused.
+func TestSSHAdoptAllowed(t *testing.T) {
+	s := &SSHAdopt{
+		AllowFrom: []string{"192.168.1.1"},
+		AllowFunc: func(h string) bool { return h == "192.168.0.14" },
+	}
+	for host, want := range map[string]bool{
+		"192.168.1.1":  true,
+		"192.168.0.14": true,
+		"192.168.0.99": false,
+	} {
+		if got := s.allowed(host); got != want {
+			t.Errorf("allowed(%s) = %v, want %v", host, got, want)
+		}
+	}
+	if (&SSHAdopt{}).allowed("192.168.0.14") {
+		t.Error("empty allow list accepted a host")
+	}
+}

@@ -40,7 +40,10 @@ type AdoptRequest struct {
 type SSHAdopt struct {
 	Listen    string   // e.g. 192.168.1.50:2222
 	AllowFrom []string // source IPs allowed to connect (the console)
-	HostKey   string   // path to the PEM host key (created mode 600)
+	// AllowFunc admits further sources, checked after AllowFrom (e.g. the
+	// controller's current inform host, which can change at runtime).
+	AllowFunc func(host string) bool
+	HostKey   string // path to the PEM host key (created mode 600)
 	Requests  chan AdoptRequest
 	mu        sync.Mutex
 	ln        net.Listener
@@ -90,7 +93,7 @@ func (s *SSHAdopt) Start() error {
 				return
 			}
 			host, _, _ := net.SplitHostPort(c.RemoteAddr().String())
-			if !contains(s.AllowFrom, host) {
+			if !s.allowed(host) {
 				log.Printf("ssh-adopt: refused connection from %s (not the console)", host)
 				c.Close()
 				continue
@@ -99,6 +102,10 @@ func (s *SSHAdopt) Start() error {
 		}
 	}()
 	return nil
+}
+
+func (s *SSHAdopt) allowed(host string) bool {
+	return contains(s.AllowFrom, host) || (s.AllowFunc != nil && s.AllowFunc(host))
 }
 
 func (s *SSHAdopt) Close() {
