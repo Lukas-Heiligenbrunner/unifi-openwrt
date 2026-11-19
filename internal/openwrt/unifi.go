@@ -8,6 +8,8 @@ import (
 	"github.com/antoniocosta/unifi-openwrt/internal/translate"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 )
 
 // Fields returns the inform fields that describe the AP's radios, VAPs,
@@ -222,6 +224,7 @@ func (s *Snapshot) Fields(prev *Snapshot, info CfgInfo, caps map[string]RadioCap
 			stas := []map[string]any{}
 			satReal, satAnom := 0, 0 // sum of the clients' satisfaction_real, their anomaly bits
 			for _, st := range v.Stations {
+				attMov, retMov, dropMov := staMov(st, prev.station(st.MAC))
 				row := map[string]any{
 					"mac": st.MAC, "authorized": st.Authorized,
 					"signal": st.Signal, "noise": st.Noise, "rssi": st.Signal - st.Noise,
@@ -230,7 +233,15 @@ func (s *Snapshot) Fields(prev *Snapshot, info CfgInfo, caps map[string]RadioCap
 					"tx_bytes": st.TxBytes, "rx_bytes": st.RxBytes,
 					"tx_packets": st.TxPackets, "rx_packets": st.RxPackets,
 					"tx_retries": st.TxRetries,
-					"uptime":     st.Connected, "idletime": st.Inactive / 1000,
+					// as a UAP: the controller's retry percentage comes from
+					// the *_mov fields (movement since the last inform); the
+					// UI's Wi-Fi 4/5 and 1x1/2x2 from tx_mcs and nss, and the
+					// controller derives radio_proto itself ("g" for a client
+					// without HT, "ng" with). tx_power: the radio's, half dB.
+					"wifi_tx_attempts": st.TxPackets + st.TxRetries, "wifi_tx_attempts_mov": attMov,
+					"tx_retries_mov": retMov, "wifi_tx_dropped": st.TxFailed, "wifi_tx_dropped_mov": dropMov,
+					"tx_retry_burst_count": 0, "tx_mcs": st.TxMCS, "tx_power": 2 * r.TxPower,
+					"uptime": st.Connected, "idletime": st.Inactive / 1000,
 					"is_11n": st.HT, "is_11ac": st.VHT, "is_11ax": st.HE,
 					"channel": r.Channel, "radio": r.Band, "essid": v.SSID, "bssid": v.BSSID,
 					"state": 15, "state_ht": st.HT, "state_pwrmgt": false,
@@ -242,6 +253,9 @@ func (s *Snapshot) Fields(prev *Snapshot, info CfgInfo, caps map[string]RadioCap
 				}
 				if ip, ok := s.ARP[st.MAC]; ok {
 					row["ip"] = ip
+				}
+				if n := clientNSS(st.MAC, st.NSS, s.Time); n > 0 {
+					row["nss"] = n
 				}
 				// chwidth: index into 20/40/80/160 MHz (controller: NRLJigwa,
 				// enum HT_20=0 .. HT_160=3); without it the panel guesses 20
@@ -309,6 +323,7 @@ func (s *Snapshot) Fields(prev *Snapshot, info CfgInfo, caps map[string]RadioCap
 		m["satisfaction"] = satClamp(allSat / nsta)
 	}
 	satPrune(s.Time)
+	nssPrune(s.Time)
 	m["radio_table"] = radios
 	m["radio_table_stats"] = rstats
 	m["vap_table"] = vaps
@@ -316,6 +331,69 @@ func (s *Snapshot) Fields(prev *Snapshot, info CfgInfo, caps map[string]RadioCap
 	m["user-num_sta"] = nsta
 	m["stat"] = map[string]any{"user-num_sta": nsta}
 	return m
+}
+
+// staMov: a client's tx attempts (packets + retries), retries and drops
+// since the previous reading; zeros with no previous reading or when the
+// counters went backwards (a re-association restarts them).
+func staMov(st Station, prev *Station) (attempts, retries, dropped int64) {
+	if prev == nil || st.TxPackets < prev.TxPackets || st.TxRetries < prev.TxRetries || st.TxFailed < prev.TxFailed {
+		return 0, 0, 0
+	}
+	retries = st.TxRetries - prev.TxRetries
+	return st.TxPackets - prev.TxPackets + retries, retries, st.TxFailed - prev.TxFailed
+}
+
+// A client's spatial streams show only in the rates of data frames (a
+// keep-alive at a legacy rate has none): the most seen per client, kept
+// until it has been gone for 10 minutes.
+type nssSeen struct {
+	nss  int
+	last time.Time
+}
+
+var (
+	nssMu  sync.Mutex
+	nssMem = map[string]nssSeen{}
+)
+
+// clientNSS records a reading of a client's streams (0 = none) and
+// returns the most seen, 0 = not known yet.
+func clientNSS(mac string, nss int, now time.Time) int {
+	nssMu.Lock()
+	defer nssMu.Unlock()
+	n := max(nss, nssMem[mac].nss)
+	if n > 0 {
+		nssMem[mac] = nssSeen{n, now}
+	}
+	return n
+}
+
+func nssPrune(now time.Time) {
+	nssMu.Lock()
+	defer nssMu.Unlock()
+	for m, e := range nssMem {
+		if now.Sub(e.last) > 10*time.Minute {
+			delete(nssMem, m)
+		}
+	}
+}
+
+// station: the client with this MAC on any VAP (nil if none, or s is nil).
+func (s *Snapshot) station(mac string) *Station {
+	if s == nil {
+		return nil
+	}
+	for _, r := range s.Radios {
+		for _, v := range r.VAPs {
+			for i := range v.Stations {
+				if v.Stations[i].MAC == mac {
+					return &v.Stations[i]
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // radio is the same radio in another snapshot: by wifi-device section when

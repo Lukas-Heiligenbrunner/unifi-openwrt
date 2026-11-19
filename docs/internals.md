@@ -268,8 +268,9 @@ fields), `internal/openwrt/satisfaction.go`.
 ### Reading the AP
 
 Every inform: `ubus call system board` / `info`, `ubus call iwinfo devices`
-then `info`, `assoclist`, `txpowerlist` per interface, `iw survey dump`,
-antenna masks, `/sys/class/net/*/statistics`, `/proc/net/arp`, `/proc/stat`.
+then `info`, `assoclist`, `txpowerlist` and hostapd's `get_clients` per
+interface, `iw survey dump`, antenna masks, `/sys/class/net/*/statistics`,
+`/proc/net/arp`, `/proc/stat`.
 One reading takes about 0.2 s on a dual-core ARM AP. Interfaces are
 discovered each time (phy numbers can change after a reboot); the daemon's
 own scan interface `uowscan*` is skipped.
@@ -307,6 +308,21 @@ Clients are only in `vap_table[].sta_table[]` (never top level): `mac`,
 `tx_bytes`, `rx_bytes`, `tx_retries`, `ip` (from the ARP table),
 **`chwidth`** (an index: 0 = 20, 1 = 40, 2 = 80, 3 = 160 MHz; the larger of the rx and tx widths),
 `satisfaction`, `anomalies`, `authorized` (guests).
+Also, as a UAP reports them (checked against a UAP-AC-Pro 6.8.2's own
+inform):
+`is_11n` / `is_11ac` / `is_11ax` from hostapd's flags for the association
+(the current rates only when hostapd has no entry: a Wi-Fi 4 client's
+keep-alives go at legacy rates); `tx_mcs` (the tx rate's MCS index, -1 for
+a legacy rate) and `nss` (spatial streams of the rates, the most seen for
+the client; left out until known), from which the UI shows Wi-Fi 4/5 and
+1x1/2x2 (`radio_proto` is the controller's own: `g` for a client without
+HT, `ng` with); `wifi_tx_attempts` (tx packets + retries),
+`wifi_tx_dropped` (tx failed) and the movement since the previous inform,
+`wifi_tx_attempts_mov`, `tx_retries_mov`, `wifi_tx_dropped_mov` (0 on the
+first reading and when the counters restart): the controller computes the
+retry percentage from the `_mov` fields; `tx_retry_burst_count` 0;
+`tx_power` (the radio's, in half dB: 34 at 17 dBm). No `ccq`: a UAP's is not
+a retry ratio (877 for a client with 912 retries on 985 packets).
 
 The controller hides its own element-adopt and mesh VAPs in its device
 view but keeps the user ones.
