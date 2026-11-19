@@ -106,6 +106,10 @@ type Features struct {
 	// two radios in one band (5 GHz low and high) each name keeps its own
 	// device; without it a band maps to its first wifi-device.
 	Sections map[string]string
+	// TxPower: the {min, max} dBm the hardware offers per reported radio
+	// name for the current country; the controller's medium/low modes are
+	// relative to the max. Unknown radios keep the maximum (and a note).
+	TxPower map[string][2]int
 }
 
 // Plan computes the UCI changes that make the AP match system_cfg. Settings
@@ -159,14 +163,28 @@ func Plan(cfg Cfg, cur UCI, f Features) Result {
 		} else if raw != "" {
 			r.Notes = append(r.Notes, fmt.Sprintf("radio %s: unknown country code %q from the controller: country left as it is", sec, raw))
 		}
-		switch tp := cfg[p+"txpower"]; {
-		case tp == "auto" || tp == "":
-			if cur[k+"txpower"] != "" {
-				r.Ops = append(r.Ops, Op{Del: true, Key: k + "txpower", Old: cur[k+"txpower"]})
+		tp, tpMode := cfg[p+"txpower"], cfg[p+"txpower_mode"]
+		// txpower keeps a stale number in the auto/high/medium/low modes;
+		// only "custom" (or an older controller sending no mode) uses it.
+		// Medium and low are maximum minus 6 / 12 dB: Ubiquiti does not
+		// publish its values, this approximates the range genuine APs use.
+		offset := map[string]int{"medium": 6, "low": 12}[tpMode]
+		switch {
+		case offset > 0:
+			if rng, ok := f.TxPower[phy]; ok && rng[1] > 0 {
+				want["txpower"] = strconv.Itoa(max(rng[1]-offset, rng[0], 1))
+			} else {
+				r.Notes = append(r.Notes, fmt.Sprintf("radio %s: txpower mode %s needs the radio's maximum power, which is unknown: left at maximum", sec, tpMode))
 			}
-		default:
+		case tpMode == "custom" || tpMode == "":
 			if _, err := strconv.Atoi(tp); err == nil {
 				want["txpower"] = tp
+			}
+		}
+		if _, ok := want["txpower"]; !ok {
+			// auto, high, unusable values and unknown maximum: maximum power
+			if cur[k+"txpower"] != "" {
+				r.Ops = append(r.Ops, Op{Del: true, Key: k + "txpower", Old: cur[k+"txpower"]})
 			}
 		}
 		r.Ops = append(r.Ops, diff(k, want, cur, nil)...)

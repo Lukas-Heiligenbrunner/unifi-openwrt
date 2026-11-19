@@ -251,7 +251,7 @@ func (cl *Client) Features() translate.Features {
 	}
 	f := translate.Features{K: has["11k"], V: has["11v"], R: has["11r"]}
 	if snap, err := cl.Collect(); err == nil {
-		f.Phys, f.Sections = snap.RadioNames(), snap.RadioSections()
+		f.Phys, f.Sections, f.TxPower = snap.RadioNames(), snap.RadioSections(), snap.RadioTxPower()
 	}
 	return f
 }

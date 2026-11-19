@@ -602,6 +602,18 @@ func (s *Snapshot) RadioSections() map[string]string {
 	return m
 }
 
+// RadioTxPower maps the radio names we report (wifiN) to the {min, max} dBm
+// the hardware offers, for radios where it is known.
+func (s *Snapshot) RadioTxPower() map[string][2]int {
+	m := map[string][2]int{}
+	for i, r := range s.Radios {
+		if r.TxMax > 0 {
+			m[fmt.Sprintf("wifi%d", i)] = [2]int{r.TxMin, r.TxMax}
+		}
+	}
+	return m
+}
+
 // Describe summarises the AP for models.Suggest.
 func (s *Snapshot) Describe() models.AP {
 	var d models.AP
