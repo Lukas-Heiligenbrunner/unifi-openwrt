@@ -702,10 +702,10 @@ inform VAP whose `name` equals the inform's `uplink`, with `usage: "uplink"`,
 `rx_packets` > 0 is resolved to the parent device: The station's
 `serialno` if it is a MAC, else the ESSID `(vwire|vport)-<12 hex>`. The
 site mesh ESSID has 16 hex digits, so `serialno` is needed. The daemon sends
-the parent BSSID as the one station and, as `serialno`, the device on the LAN
-whose MAC shares bytes 2-5 with that BSSID (UniFi BSSIDs keep the device
-MAC's middle four bytes). The controller then sets `uplink.type=wireless`,
-`uplink_ap_mac`, `is_mesh_v3`, signal and rates.
+the parent BSSID as the one station and, as `serialno`, the LAN device that
+BSSID belongs to (matched as in [RF scan](#rf-scan-and-80211k-neighbour-list)).
+The controller then sets `uplink.type=wireless`, `uplink_ap_mac`,
+`is_mesh_v3`, signal and rates.
 
 The label can stay "wire" while the controller still holds a fresher
 topology entry for the AP from the switch that saw it wired
@@ -841,8 +841,13 @@ From the decompiled controller (`UQKIrjV`, `DRUVu`, `gliBtHTTrWRd`):
   list (`stat/rogueap`); **a non-UniFi row whose ESSID is one of the site's
   WLANs raises a rogue-AP alarm**. `is_unifi` + `serialno` (device MAC)
   mark a sibling. So the daemon leaves out its own BSSIDs and site-SSID rows
-  it cannot match to a LAN device (BSSID bytes 2-5 = a LAN device's MAC
-  bytes 2-5).
+  it cannot match to a LAN device. A BSSID belongs to a device when its
+  second and third bytes are the device MAC's and of the last three bytes
+  at most one differs, higher by 1-15; the first byte does not count
+  (UAP-AC-Pro `48:a1:01:13:27:5c` has `52:a1:01:14:27:5c`, U7 Lite
+  `70:e5:f6:47:9c:3a` has `76:e5:f6:47:9c:3b`). The LAN devices are the
+  MACs in the ARP table and the br-lan FDB: the ARP table holds only the
+  hosts the AP talks to itself, so it rarely has the other APs.
 - `radio_table[i].spectrum_table`: `[{channel, width, center_freq,
   utilization, interference}]`, with `spectrum_table_time` = age in
   seconds. Served by `stat/spectrum-scan/<mac>`. Top-level

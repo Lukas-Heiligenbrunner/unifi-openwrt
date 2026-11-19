@@ -145,13 +145,14 @@ func (sc *scanner) syncRRM(ap *openwrt.Client) {
 			own[v.BSSID] = true
 		}
 	}
+	neigh := s.Neighbours()
 	var errs []string
 	for _, r := range s.Radios {
 		for _, v := range r.VAPs {
 			if v.Mode != "Master" || v.SSID == "" {
 				continue
 			}
-			nb := append(openwrt.OwnOtherBands(s, v.SSID, v.Iface), openwrt.Siblings(res, v.SSID, own, s.ARP)...)
+			nb := append(openwrt.OwnOtherBands(s, v.SSID, v.Iface), openwrt.Siblings(res, v.SSID, own, neigh)...)
 			changed, err := ap.SyncNeighbors(v.Iface, nb)
 			if err != nil {
 				errs = append(errs, err.Error())
@@ -192,6 +193,7 @@ func (sc *scanner) fields(f map[string]any, s *openwrt.Snapshot, info openwrt.Cf
 	for ssid := range info.IDs {
 		site[ssid] = true
 	}
+	neigh := s.Neighbours()
 	now := time.Now()
 	for _, row := range rows {
 		band, _ := row["radio"].(string)
@@ -199,7 +201,7 @@ func (sc *scanner) fields(f map[string]any, s *openwrt.Snapshot, info openwrt.Cf
 		if !ok {
 			continue
 		}
-		row["scan_table"] = openwrt.ScanTable(res, now, own, site, s.ARP)
+		row["scan_table"] = openwrt.ScanTable(res, now, own, site, neigh)
 		if len(res.Spectrum) > 0 {
 			row["spectrum_table"] = openwrt.SpectrumRows(res.Spectrum)
 			row["spectrum_table_time"] = int(now.Sub(res.Time).Seconds())
@@ -235,11 +237,12 @@ func (sc *scanner) siblingFT() map[string]openwrt.PeerFT {
 			own[v.BSSID] = true
 		}
 	}
+	neigh := s.Neighbours()
 	for _, r := range s.Radios {
 		for _, v := range r.VAPs {
 			if v.Mode == "Master" && v.SSID != "" {
 				if _, done := out[v.SSID]; !done {
-					out[v.SSID] = openwrt.SiblingFT(res, v.SSID, own, s.ARP)
+					out[v.SSID] = openwrt.SiblingFT(res, v.SSID, own, neigh)
 				}
 			}
 		}

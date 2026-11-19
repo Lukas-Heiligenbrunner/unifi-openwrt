@@ -428,7 +428,8 @@ func channelFreq(ch, ref int) int {
 // one of those that can't be matched to a UniFi device is left out, so the
 // controller doesn't raise a rogue-AP alarm for another AP of the same
 // network (a UAP knows its siblings from the Ubiquiti beacon IE; we only
-// know devices we can see on the LAN). neigh: LAN neighbours (mac -> ip).
+// know devices we can see on the LAN). neigh: the LAN devices
+// (Snapshot.Neighbours).
 func ScanTable(r ScanResult, now time.Time, own map[string]bool, siteSSIDs map[string]bool, neigh map[string]string) []map[string]any {
 	age0 := int(now.Sub(r.Time).Seconds())
 	if age0 < 0 {
