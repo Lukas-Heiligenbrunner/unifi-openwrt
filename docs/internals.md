@@ -3,10 +3,10 @@
 How unifi-openwrt works, for contributors. Everything here was worked out against
 UniFi Network 10.6 and UAP firmware 6.8.2; other versions may differ.
 
-- [Protocol: inform, adoption, keys](#protocol-inform-adoption-keys)
-- [Config translation: system_cfg to UCI](#config-translation-systemcfg-to-uci)
+- [Protocol: Inform, adoption, keys](#protocol-inform-adoption-keys)
+- [Config translation: System_cfg to UCI](#config-translation-systemcfg-to-uci)
 - [Stats in the inform](#stats-in-the-inform)
-- [UniFi AP "satisfaction" / WiFi Experience score: how it is computed](#unifi-ap-satisfaction--wifi-experience-score-how-it-is-computed)
+- [UniFi AP "satisfaction" / WiFi Experience score: How it is computed](#unifi-ap-satisfaction--wifi-experience-score-how-it-is-computed)
 - [Models and capability profiles](#models-and-capability-profiles)
 - [Status LED](#status-led)
 - [Mesh (wireless uplink)](#mesh-wireless-uplink)
@@ -14,11 +14,11 @@ UniFi Network 10.6 and UAP firmware 6.8.2; other versions may differ.
 - [Guest WLANs and the guest portal](#guest-wlans-and-the-guest-portal)
 - [RF scan and 802.11k neighbour list](#rf-scan-and-80211k-neighbour-list)
 
-## Protocol: inform, adoption, keys
+## Protocol: Inform, adoption, keys
 
 How unifi-openwrt talks to a UniFi controller as a UniFi AP. Code:
 `internal/inform` (packets, payload), `internal/device` (session, replies,
-SSH adoption, syslog). Sources: open-unifi `docs/PROTOCOL*.md`, unifi-emu
+SSH adoption, syslog). Sources: The open-unifi `docs/PROTOCOL*.md`, unifi-emu
 `docs/PROTOCOL.md`, and what UniFi Network 10.6 did on the wire. Class names
 like `gliBtHTTrWRd` are obfuscated names in the controller's
 `lib/internal/internal-dependencies.jar` (Network 10.6.109); they change
@@ -50,7 +50,7 @@ off size field
   `0x000b` (GCM + zlib) once adopted. Replies come back uncompressed
   (`0x0001` or `0x0009`) with a fresh IV and the same key.
 - Plain-text informs are rejected; bodies over 10 MB too.
-- HTTP 404 to a pending device is normal: keep informing.
+- HTTP 404 to a pending device is normal: Keep informing.
 - `inform_url` must have an IP literal as host; the controller answers
   `invalid inform_ip` to a host name.
 
@@ -75,7 +75,7 @@ JSON, one object. Sent on every inform, pending or adopted:
 | `state` | 1 pending, 4 adopted (not read by the controller) |
 | `fw_caps` | `3` (nothing) while pending; the model profile's value once adopted. Send it as an unsigned 32-bit number |
 | `sshd_port` | where the controller SSHes to adopt (see below) |
-| `inform_min_interval` | `1`: the device supports live updates (see [Live updates](#live-updates)) |
+| `inform_min_interval` | `1`: The device supports live updates (see [Live updates](#live-updates)) |
 
 Do not send `udapi_caps` without `udapi_version` (the controller then drops all
 capabilities); a U7PG2 sends neither. Send no `_type` for a normal inform.
@@ -101,7 +101,7 @@ Network 10.6 uses two paths; handle both.
    `use_aes_gcm=true`. Accept a new key from `mgmt_cfg` only while still on
    the factory key (otherwise a device can get stuck re-adopting).
 
-After the key: a `setparam` with `mgmt_cfg` (cfgversion, LED, STUN and
+After the key: A `setparam` with `mgmt_cfg` (cfgversion, LED, STUN and
 management URLs) and then the full `system_cfg` (several KB of
 `section.N.key=value` lines; it contains WLAN passphrases, so it is stored
 mode 600 and never logged). The device echoes the new `cfgversion` and the
@@ -113,7 +113,7 @@ controller shows it as connected.
 - `setparam`: `mgmt_cfg`, `system_cfg`, `blocked_sta` (newline-separated MACs).
   From `mgmt_cfg` the daemon takes `cfgversion`, `authkey` (only while on the
   factory key), `use_aes_gcm`, `led_enabled` and `inform_url` ("Override
-  inform host": the controller repeats the setparam until the device reports
+  inform host": The controller repeats the setparam until the device reports
   that address). A setparam repeated unchanged is answered at once three
   times, then at the normal interval.
 - An empty reply means "nothing". After a bad answer the daemon keeps
@@ -127,11 +127,11 @@ controller shows it as connected.
 does not know, a reply field or `mgmt_cfg` key it does not read, and a
 `system_cfg` section the translator does not handle are kept in
 `unhandled.json` in the state directory (on the AP:
-`/etc/unifi-openwrt/state/unhandled.json`, mode 600): kind, name, count,
+`/etc/unifi-openwrt/state/unhandled.json`, mode 600): Kind, name, count,
 first and last seen, and the first one as a sample. The sample never holds a
 configuration body or the value of anything named like a secret (key,
 password, token, ...). The file is the to-do list for a new controller
-version: at most 100 entries, a new one written at once and logged
+version: At most 100 entries, a new one written at once and logged
 (`unhandled ... (first time)`), repeat counts once an hour. Within a
 handled `system_cfg` section single keys are not tracked.
 
@@ -141,7 +141,7 @@ resets its uptime (a faked reboot, as unifi-emu does), so the controller
 does not loop on the upgrade.
 
 **`setdefault`** (the user clicked Remove) means "forget the controller":
-the daemon goes back to the factory key, `cfgversion` "0" and no
+The daemon goes back to the factory key, `cfgversion` "0" and no
 `mgmt_cfg`, i.e. pending. It never factory-resets OpenWrt and leaves the
 AP's Wi-Fi as it is.
 
@@ -165,9 +165,9 @@ informs. Lines are tagged `MODEL,mac12,version:` like a UAP's. Code:
 Unencrypted remote syslog (a syslog server set in the UniFi) is translated to
 logd's `log_ip` / `log_port` instead.
 
-## Config translation: system_cfg to UCI
+## Config translation: System_cfg to UCI
 
-The controller provisions a UniFi AP with `system_cfg`: flat
+The controller provisions a UniFi AP with `system_cfg`: Flat
 `section.N.key=value` lines (several KB). `internal/translate` turns it into
 OpenWrt UCI changes; `internal/openwrt` applies them and runs the parts that
 are not UCI (nftables, tc, usteer, snmpd, hostapd runtime lists).
@@ -184,15 +184,15 @@ are not UCI (nftables, tc, usteer, snmpd, hostapd runtime lists).
    (`wifi reload`, network reload detached, system reload). Before that the
    daemon backs up the touched packages and starts an on-AP timer that
    restores them after 5 minutes unless confirmed.
-4. **Health check.** 20 s later: every enabled radio that has interfaces must
+4. **Health check.** 20 s later: Every enabled radio that has interfaces must
    be up with its interfaces (`ubus call network.wireless status`), and a
    daemon on the AP must still get a TCP connection to the controller's
-   inform port (the radios say nothing about the wired side: a controller
+   inform port (the radios say nothing about the wired side: A controller
    that sets a static AP to DHCP on a network without a DHCP server leaves
    the radios up and the AP unreachable). IP settings rolled back for that
    reason are remembered (`network-refused.txt` in the state directory) and
    left out of later plans, with a note in the log, until the controller
-   asks for other IP settings: without that, every later change would take
+   asks for other IP settings: Without that, every later change would take
    the AP off the network for a minute and be rolled back with them. OK ->
    confirm (the timer exits, backups are removed); not OK -> roll back at
    once. A radio left with no interfaces (Disable device) is fine.
@@ -231,7 +231,7 @@ A requested feature the AP lacks is left off and noted ("clamped").
 | `system.timezone`, `ntpclient.N.server` | `system.@system[0].timezone`, `system.ntp.server` |
 | `netconf`, `dhcpc`, `route`, `resolv` (management IP) | `network.lan` `proto dhcp` or `static` (`ipaddr`, `netmask`, `gateway`, `dns`). A static address other than the one the daemon reaches the AP on is refused |
 | `users.N` (site Device SSH Authentication, sha512-crypt) | extra uid-0 logins in `/etc/passwd` / `/etc/shadow`; only accounts listed in `/etc/unifi-openwrt/users` are touched, never root or system accounts |
-| `syslog.remote.*` | plain: logd `log_ip` / `log_port` / `log_proto`; encrypted: the daemon forwards itself ([Encrypted remote syslog](#encrypted-remote-syslog)) |
+| `syslog.remote.*` | Plain: `logd` with `log_ip` / `log_port` / `log_proto`; encrypted: The daemon forwards itself ([Encrypted remote syslog](#encrypted-remote-syslog)) |
 | `snmp.*` (`version`, `community`, `user.N`) | `/etc/unifi-openwrt/snmpd.conf` (mode 600) and an snmpd procd instance while it exists. OpenWrt's `snmpd` package is `snmpd-nossl`, so SNMPv3 auth/priv is not available |
 | `ledbar.*` | LED colour and brightness ([Status LED](#status-led)) |
 
@@ -244,9 +244,9 @@ right before the first adoption).
 - **Block / Unblock** (`cmd block-sta` / `unblock-sta`, and the `blocked_sta`
   list): `hostapd_cli deny_acl ADD_MAC` / `DEL_MAC` on every BSS, re-asserted
   every 30 s and after each Wi-Fi reload (needs `hostapd-utils`). Without
-  hostapd_cli: a 90 s `del_client` ban, refreshed.
+  hostapd_cli: A 90 s `del_client` ban, refreshed.
 - **Reconnect** (`kick-sta`): `del_client` with ban time 0.
-- **Disable device**: the controller sends a config without WLANs and LED
+- **Disable device**: The controller sends a config without WLANs and LED
   off; the translator disables the AP interfaces.
 
 ## Stats in the inform
@@ -272,9 +272,9 @@ One row per phy, named `wifi0`, `wifi1`, ... (`ng` = 2.4 GHz, `na` = 5 GHz,
 from the model profile and the hardware.
 
 Channel use goes in **`radio_table[].athstats`** (`cu_total`, `cu_self_rx`,
-`cu_self_tx`, `cu_interf`, percent), not `radio_table_stats`: that is what the
+`cu_self_tx`, `cu_interf`, percent), not `radio_table_stats`: That is what the
 controller's UAP inform reader (`gliBtHTTrWRd`) and the history sampler read.
-From the survey counters: total = busy / active, self_rx = receive / active,
+From the survey counters: `total` = busy / active, self_rx = receive / active,
 self_tx = transmit / active, interf = total - self_rx - self_tx, as deltas
 between informs, rounded to the nearest percent.
 
@@ -303,7 +303,7 @@ The radios are the enabled `wifi-device`s of `ubus call network.wireless
 status`, each with its band from UCI, plus what iwinfo reads from its AP
 interfaces (channel, power, stations). A radio with no interface up (no WLAN
 yet, or waiting on DFS) is still reported, with the UCI channel and width,
-as a UniFi AP lists its radios with or without WLANs: otherwise a freshly
+as a UniFi AP lists its radios with or without WLANs: Otherwise a freshly
 adopted AP shows no band and the controller cannot put a WLAN on it. An
 interface on no channel (frequency 0) takes the band of its `wifi-device`.
 The radios are named `wifiN` in band order (2.4, 5, 6 GHz) and, within a
@@ -324,7 +324,7 @@ port squares in the panel (that needs a `ports` entry in the panel's model
 data), only the Port Manager button.
 
 For a wired uplink the `eth0` row carries `signal 0`, `rssi 0`,
-`is_mesh_v3 false`: the controller merges the row into the stored uplink,
+`is_mesh_v3 false`: The controller merges the row into the stored uplink,
 and old mesh values would otherwise keep a mesh signal bar on the map.
 
 The uplink port is the up port whose br-lan FDB entry holds the gateway's
@@ -334,7 +334,7 @@ is the uplink, as before. `-uplink-port` (UCI `uplink_port`) names the
 uplink port outright and skips both.
 
 The in-wall models report the jack on the back after their front ports:
-port 5 on the U6-IW, U6-IW-EA, U6-Enterprise-IW and AP-HD-In Wall (four
+Port 5 on the U6-IW, U6-IW-EA, U6-Enterprise-IW and AP-HD-In Wall (four
 front ports), port 3 on the AC-IW (two), the port counts in the
 controller's model table. The front ports are numbered from 1; an AP with
 more ports than the model numbers the rest after the uplink. The uplink is
@@ -345,13 +345,13 @@ Every other br-lan port carries a `mac_table` (`mac`, `age`, `vlan`,
 `static`), read from `/sys/class/net/br-lan/brforward` with busybox
 `hexdump`. The controller handles a UAP's `port_table` like a switch's only
 when the model has the `ACCESS_POINT_SWITCH` feature (`XCfthFC.isSwitch`):
-the in-wall models (U6-IW, U6-Enterprise-IW, AC-IW, ...) do, the AC Pro
+The in-wall models (U6-IW, U6-Enterprise-IW, AC-IW, ...) do, the AC Pro
 does not. For those it walks each non-uplink port (`lTGxQKc`) and lists the
 MACs as wired clients on that port; a network matches a row by `vlan`
 (default 1). The FDB carries no VLAN, so every row says 1, the untagged LAN.
 
 `lldp_table` holds the LLDP neighbours when the optional `lldpd` runs on the
-AP (`lldpctl -f json0`; the older keyed `-f json` form is read too): per
+AP (`lldpctl -f json0`; the older keyed `-f json` form is read too): Per
 neighbour `local_port_idx` (the `port_idx` above), `local_port_name`,
 `is_wired`, `chassis_id`, `chassis_descr`, `port_id`, `port_descr`. A
 neighbour heard on anything but a reported port is left out. Sending the
@@ -361,7 +361,7 @@ OpenWrt's default lldpd configuration listens on `lo` and `br-lan` only. It
 sends from there, so a switch hears the AP, but a bridge does not pass LLDP
 frames up, so lldpd hears nothing until the Ethernet ports are in its
 interface list (`uci add_list lldpd.config.interface=lan1`). Seen live with
-lldpd 1.0.22 and a UniFi switch: the controller stores the AP's
+lldpd 1.0.22 and a UniFi switch: The controller stores the AP's
 `lldp_table`, and the AP's `uplink_source` becomes `lldp_uplink`.
 
 ### System
@@ -371,7 +371,7 @@ lldpd 1.0.22 and a UniFi switch: the controller stores the AP's
   free - buffers - cache) / total). Without `system-stats` the CPU and memory
   graphs stay empty.
 - `satisfaction` at the top level, per VAP and in `athstats.satisfaction`:
-  see `docs/satisfaction-formula.md` for how UAP firmware computes it.
+  See `docs/satisfaction-formula.md` for how UAP firmware computes it.
 - `hash_id` (encrypted syslog), `guest_token` and `guest_kicks` (portal).
 
 ### Live updates
@@ -383,9 +383,9 @@ controller then answers with `interval: 1` while someone watches the device,
 and the daemon follows the reply's interval down to 1 s. `-inform-every`
 (UCI `inform_every`) sets a minimum rate of its own.
 
-## UniFi AP "satisfaction" / WiFi Experience score: how it is computed
+## UniFi AP "satisfaction" / WiFi Experience score: How it is computed
 
-Static analysis of public files only: nothing from them was executed.
+Static analysis of public files only: Nothing from them was executed.
 
 ### Summary
 
@@ -403,7 +403,7 @@ Static analysis of public files only: nothing from them was executed.
 | U7PG2 firmware 6.8.2+15592 (`BZ.qca956x.v6.8.2+15592.260126.1358`) | `https://fw-download.ubnt.com/data/unifi-firmware/259f-U7PG2-6.8.2-5464c424-a775-4715-8bbc-d84602f55445.bin`, sha256 `3cf8ebe7...7474e` |
 | U7HD firmware 6.8.2+15592 (`BZ.ipq806x.v6.8.2+15592.260126.1359`, same build number) | `https://fw-download.ubnt.com/data/unifi-firmware/2d2a-U7HD-6.8.2-20124be7-84e0-4e5c-8ec5-c6397a80c06a.bin`, sha256 `74188855...20677` |
 
-Why two firmwares: the U7PG2 userland is MIPS16 and no MIPS disassembler was at hand. The U7HD build of the same version is ARM, which was disassembled with Go's vendored `armasm`. The U7PG2 `libubnt.so` exports the same functions (`calc_sta_satisfaction`, `calc_vap_satisfaction`, `calc_radio_satisfaction`, `calc_ap_satisfaction`, `calc_sta_satisfaction_mov`, `calc_satisfaction_mov`, `sat_xretry_penalty_thrs`, `sat_xretry_metric_ranges`) and contains byte-identical constant tables (PHY-rate tables at file offsets 224944 and 225008, drop thresholds at 369524). So "VERIFIED" below means: read in the U7HD 6.8.2 code, with constants confirmed present in the U7PG2 6.8.2 binary. The U7PG2 instruction stream itself was not read.
+Why two firmwares: The U7PG2 userland is MIPS16 and no MIPS disassembler was at hand. The U7HD build of the same version is ARM, which was disassembled with Go's vendored `armasm`. The U7PG2 `libubnt.so` exports the same functions (`calc_sta_satisfaction`, `calc_vap_satisfaction`, `calc_radio_satisfaction`, `calc_ap_satisfaction`, `calc_sta_satisfaction_mov`, `calc_satisfaction_mov`, `sat_xretry_penalty_thrs`, `sat_xretry_metric_ranges`) and contains byte-identical constant tables (PHY-rate tables at file offsets 224944 and 225008, drop thresholds at 369524). So "VERIFIED" below means: Read in the U7HD 6.8.2 code, with constants confirmed present in the U7PG2 6.8.2 binary. The U7PG2 instruction stream itself was not read.
 
 Addresses below are in the U7HD 6.8.2 `libubnt.so` and `mcad`.
 
@@ -411,7 +411,7 @@ Addresses below are in the U7HD 6.8.2 `libubnt.so` and `mcad`.
 
 #### Per client, each stats cycle (`calc_sta_satisfaction`, libubnt 0x26ae4) - VERIFIED
 
-All 16 sub-score slots start at -1 (not computed). A helper (0x26858) records each sub-score: negative values are dropped, values are capped at 100, the running **minimum** becomes `satisfaction_now`, the bit of the minimum becomes `satisfaction_reason_now`, and every sub-score **<= 79** sets its bit in `anomalies_now`.
+All 16 sub-score slots start at -1 (not computed). A helper (0x26858) records each sub-score: Negative values are dropped, values are capped at 100, the running **minimum** becomes `satisfaction_now`, the bit of the minimum becomes `satisfaction_reason_now`, and every sub-score **<= 79** sets its bit in `anomalies_now`.
 
 Bit order (from `anomalies_bar_chart_keys`, matches the controller's bit map in `com/ubnt/service/devmgr/fjCmwuxWyFDHeILC`): 1 weak_signal, 2 low_phy_rate, 4 high_tcp_packet_loss, 8 high_tcp_latency, 16 high_wifi_retries, 32 poor_stream_eff, 64 sleepy_client, 128 high_wifi_latency, 256 sta_ip_timeout, 512 sta_arp_timeout, 1024 sta_dns_timeout, 2048 high_dns_latency, 4096 high_icmp_rtt, 8192 high_disconnect_count, 16384 no_dhcp_response, 32768 high_wifi_drops.
 
@@ -435,7 +435,7 @@ Field names for `tx_rate_mov` (+376), `wifi_tx_attempts_mov` (+328), `tx_retries
 
 #### Smoothing (`calc_sta_satisfaction_mov`, libubnt 0x273d4) - VERIFIED
 
-For each of the 16 sub-scores: mean of the current value and up to 4 history slots, ignoring -1. For bits 256/512/1024 a current 0 gives 0 immediately and historical zeros are ignored. Then again: `satisfaction_real` = **minimum** of the averaged sub-scores, `satisfaction_reason` = its bit (if < 100), `anomalies` = bits with average <= 79.
+For each of the 16 sub-scores: Mean of the current value and up to 4 history slots, ignoring -1. For bits 256/512/1024 a current 0 gives 0 immediately and historical zeros are ignored. Then again: `satisfaction_real` = **minimum** of the averaged sub-scores, `satisfaction_reason` = its bit (if < 100), `anomalies` = bits with average <= 79.
 
 #### What is reported (mcad JSON writer) - VERIFIED
 
@@ -445,16 +445,16 @@ For each of the 16 sub-scores: mean of the current value and up to 4 history slo
 
 #### Aggregation - VERIFIED
 
-- VAP (`calc_satisfaction_mov`, 0x27528): sum of clients' `satisfaction_real` / `num_satisfaction_sta`, capped at 100; -1 if no clients. Also builds `anomalies_bar_chart` (count of clients per anomaly bit).
-- Radio: sum(vap_score * vap_clients) / sum(vap_clients) over VAPs on that radio; -1 if none.
-- AP top level: the same over all VAPs.
+- VAP (`calc_satisfaction_mov`, 0x27528): Sum of clients' `satisfaction_real` / `num_satisfaction_sta`, capped at 100; -1 if no clients. Also builds `anomalies_bar_chart` (count of clients per anomaly bit).
+- Radio: Sum(vap_score * vap_clients) / sum(vap_clients) over VAPs on that radio; -1 if none.
+- AP top level: The same over all VAPs.
 
 #### Controller side - VERIFIED (no formula there)
 
 - Reads only: `com/ubnt/service/devmgr/gliBtHTTrWRd` lines 1042 (top level), 1364 (`athstats.satisfaction`, default -1), 1272 (drops `satisfaction_real` from VAP rows), 2163 (per-sta fields copied).
 - `com/ubnt/service/devmgr/QNAsAi` lines 765-767: `satisfaction_avg` = running {total, count} of the client's `satisfaction`.
-- `com/ubnt/service/system/xFcFXmUmQb` lines 164-165: `ratio_sta_low_ux_avg` = share of clients with `satisfaction_real` (fallback `satisfaction`) < 70; `ratio_sta_high_ux_avg` = share >= 80; lines 655-665: site/radio averages weighted by `num_sta`, skipping -1.
-- `com/ubnt/service/wifi/g/sITFkDkyKy` lines 88-103: site health from the average: >= 95 excellent, >= 50 good, else fair.
+- `com/ubnt/service/system/xFcFXmUmQb` lines 164-165: `ratio_sta_low_ux_avg` = share of clients with `satisfaction_real` (fallback `satisfaction`) < 70; `ratio_sta_high_ux_avg` = share >= 80; lines 655-665: Site/radio averages weighted by `num_sta`, skipping -1.
+- `com/ubnt/service/wifi/g/sITFkDkyKy` lines 88-103: Site health from the average: >= 95 excellent, >= 50 good, else fair.
 - `com/ubnt/service/l/e/ufLrTYaZrJQDCDtqYW`: API `wifi_experience_score` = sta `satisfaction`.
 - Wired clients and switch ports also just read `satisfaction` / `satisfaction_reason` (`com/ubnt/service/e/oViVvFSgD` line 136, `com/ubnt/service/e/a/a/d/aoUDgXMlCqEvTSIrOtq`).
 
@@ -464,22 +464,22 @@ Two searches found no Ubiquiti page or community write-up with the formula. The 
 
 ### (b) What this means for unifi-openwrt
 
-- A signal-based estimate does not match: signal is not an input in 6.8.2, and the reported value never goes below 60. `internal/openwrt/satisfaction.go` implements the PHY-rate and retry sub-scores, the 5-cycle smoothing and the clamp.
-- A faithful version on OpenWrt: compute the PHY-rate, retry and (optionally) TCP-latency sub-scores as above, take the minimum, average each sub-score over the last 5 cycles, report `satisfaction = clamp(min, 60, 100)`, and send `satisfaction_real` / `satisfaction_now` unclamped. Set `anomalies` bits for sub-scores <= 79.
+- A signal-based estimate does not match: Signal is not an input in 6.8.2, and the reported value never goes below 60. `internal/openwrt/satisfaction.go` implements the PHY-rate and retry sub-scores, the 5-cycle smoothing and the clamp.
+- A faithful version on OpenWrt: Compute the PHY-rate, retry and (optionally) TCP-latency sub-scores as above, take the minimum, average each sub-score over the last 5 cycles, report `satisfaction = clamp(min, 60, 100)`, and send `satisfaction_real` / `satisfaction_now` unclamped. Set `anomalies` bits for sub-scores <= 79.
 - Whether the retry and drop sub-scores apply on a real U7PG2 is open (chip-type gate, see (d)); leaving them at 100 is the safe reading for the other chip types.
 
 ### (c) cu_total / cu_self_rx / cu_self_tx / cu_interf
 
-- VERIFIED: userland does not compute them. `get_athstat` (libubnt 0x2ef74) does `ioctl(sock, 0x89F9, ifreq{radio name, ptr})` into a 104-byte struct; `cu_total`, `cu_self_rx`, `cu_self_tx`, `cu_interf` are at offsets 48/52/56/60, `noise_floor` at 64. mcad writes them to `athstats` unchanged and logs "invalid stat cu_...: %d" if a value is > 100 (mcad 0x34b28-0x34c44).
-- VERIFIED: the only userland use is `avail = min(100, 100 + cu_self_rx + cu_self_tx - cu_total)` in the PHY-rate sub-score (libubnt 0x2a198-0x2a1bc).
-- INFERRED (strings in U7PG2 kernel modules only, code not read): the driver derives them from the MAC cycle counters. `ath_hal.ko` has `ar9300_get_mib_cycle_counts_pct` and "BB busy times: rx_clear=%d%%, rx_frame=%d%%, tx_frame=%d%%"; `umac.ko` has `chanutil_total`, `chanutil_selfrx`, `chanutil_selftx` and "rxclear_pct:%d,rxframe_pct:%d,txframe_pct:%d". Likely mapping: total = rx_clear %, self_tx = tx_frame %, self_rx = rx_frame %, interf = the remainder. On OpenWrt the equivalents are the survey counters (busy / tx / rx time over active time).
+- VERIFIED: Userland does not compute them. `get_athstat` (libubnt 0x2ef74) does `ioctl(sock, 0x89F9, ifreq{radio name, ptr})` into a 104-byte struct; `cu_total`, `cu_self_rx`, `cu_self_tx`, `cu_interf` are at offsets 48/52/56/60, `noise_floor` at 64. mcad writes them to `athstats` unchanged and logs "invalid stat cu_...: %d" if a value is > 100 (mcad 0x34b28-0x34c44).
+- VERIFIED: The only userland use is `avail = min(100, 100 + cu_self_rx + cu_self_tx - cu_total)` in the PHY-rate sub-score (libubnt 0x2a198-0x2a1bc).
+- INFERRED (strings in U7PG2 kernel modules only, code not read): The driver derives them from the MAC cycle counters. `ath_hal.ko` has `ar9300_get_mib_cycle_counts_pct` and "BB busy times: Rx_clear=%d%%, rx_frame=%d%%, tx_frame=%d%%"; `umac.ko` has `chanutil_total`, `chanutil_selfrx`, `chanutil_selftx` and "rxclear_pct:%d,rxframe_pct:%d,txframe_pct:%d". Likely mapping: Total = rx_clear %, self_tx = tx_frame %, self_rx = rx_frame %, interf = the remainder. On OpenWrt the equivalents are the survey counters (busy / tx / rx time over active time).
 
 ### (d) Not determined
 
-- The chip-type enum values 17, 18, 23 that gate the retry and drop sub-scores: not mapped to hardware, so it is unknown whether they apply on a U7PG2 (QCA956x + QCA988x).
+- The chip-type enum values 17, 18, 23 that gate the retry and drop sub-scores: Not mapped to hardware, so it is unknown whether they apply on a U7PG2 (QCA956x + QCA988x).
 - How often a sample is taken and when the 4-slot history is rotated (the interval behind the "mov" averaging).
 - The exact semantics of the DHCP/ARP/IP flag fields (+1216, +1220, +1244..+1250) and the TCP-stat field names.
-- The `satisfaction_exp` variant (second score block, uses `sat_xretry_metric_ranges`, whose range bounds are zero in the file and presumably set at runtime): not followed further.
+- The `satisfaction_exp` variant (second score block, uses `sat_xretry_metric_ranges`, whose range bounds are zero in the file and presumably set at runtime): Not followed further.
 - Whether earlier 6.x builds (or the 4.x/5.x firmware that introduced the score) used signal, CCQ or other inputs; only 6.8.2 was read. The unused bit names (weak_signal, sleepy_client, poor_stream_eff, high_wifi_latency, high_tcp_packet_loss) suggest older or other-platform versions did.
 - The driver-side cu_* arithmetic (kernel modules not disassembled).
 
@@ -491,7 +491,7 @@ The daemon reports itself as one UniFi AP model (UCI `option model`, flag
 
 ### Catalogue
 
-`internal/models/catalog.json` lists 68 UniFi AP models: code, display name,
+`internal/models/catalog.json` lists 68 UniFi AP models: Code, display name,
 firmware version, radios (band, streams, transmit power range) and Wi-Fi
 generation. It is generated from unifi-emu's `model_profiles.json` (MIT; see
 `NOTICE`), which was harvested from the hardware database of UniFi Network
@@ -506,7 +506,7 @@ codename-only models generation 0 (selectable, never suggested) and applies
 measured corrections (the UAP-AC-Pro has 3x3 radios; the source says 2).
 
 `uow -models` lists the catalogue. `uow -ap local -suggest` ranks it for the
-AP it runs on: same set of bands first, then the same Wi-Fi generation, then
+AP it runs on: Same set of bands first, then the same Wi-Fi generation, then
 the same stream count; `U7PG2` wins ties because its capability words are
 measured. 6 GHz radios are band `6e` (frequency above 5925 MHz; UCI band
 `6g`).
@@ -515,10 +515,10 @@ measured. 6 GHz radios are band `6e` (frequency above 5925 MHz; UCI band
 
 The controller decides what to push from capability words in the inform:
 
-- `fw_caps`, `fw2_caps`: firmware features (for example `0x1000000`
+- `fw_caps`, `fw2_caps`: Firmware features (for example `0x1000000`
   encrypted syslog; `0x400` SHA-512 SSH password; `0x100000` RADIUS
   dynamic authorization).
-- `wifi_caps`, `wifi_caps2`: wireless features. Without `wifi_caps` every
+- `wifi_caps`, `wifi_caps2`: Wireless features. Without `wifi_caps` every
   wireless feature counts as unsupported. The UAP-AC-Pro value
   `559857373` sets VWIRE, BANDSTEER (+PER_VAP), RF_SCAN, BGA_FILTER, MESH,
   MINRATE_CTRL, MULTIPLE_ACL_LIST, MESHV3, RADIUS_MAC_AUTH, OPEN_HOSTAPD,
@@ -553,7 +553,7 @@ from the catalogue and the capability words from the AC-Pro profile.
 3. Run `go test ./internal/models/ ./internal/inform/` and check
    `uow -ap local -suggest` on the AP.
 4. Adopt it and check that the controller lists the right number of radios
-   **before** changing anything: the controller never forgets a radio row
+   **before** changing anything: The controller never forgets a radio row
    once reported (only Remove and adopt again clears it).
 
 Whether a given model is accepted depends on the controller version: Network
@@ -577,17 +577,17 @@ Code: `internal/openwrt/led.go` (states and renderer), `internal/openwrt/actions
 
 ### What the controller sends
 
-- On/off: the device's `led_override` (`default`, `on`, `off`) combined with
+- On/off: The device's `led_override` (`default`, `on`, `off`) combined with
   the site's LED setting arrives as `mgmt_cfg` `led_enabled=true|false`.
 - Locate: `cmd set-locate` / `unset-locate`. With a speaker and `alsa-utils`
   the daemon also beeps (UCI `locate_beep`).
-- Colour and brightness: only via system_cfg `ledbar.*`
+- Colour and brightness: Only via system_cfg `ledbar.*`
   (`status`, `persistent`, `brightness` 0-255, `color.1.{r,g,b}`), and only to
   devices that report `hw_caps` bit 2 (LED bar colour) or 16384 (PWM
   brightness). A UAP-AC-Pro reports 0. Claim the bits with UCI `hw_caps` (or
   `-hw-caps`) if the AP's LEDs can show colour or brightness.
 
-The controller's model database has no LED data: each device declares
+The controller's model database has no LED data: Each device declares
 `hw_caps` itself.
 
 ### Rendering on OpenWrt
@@ -596,9 +596,9 @@ The daemon picks the status LEDs from `/sys/class/leds` (names with
 `status`, else `power`, else `system`, else all) and maps the state onto
 them:
 
-- RGB groups (for example a ring of red/green/blue LEDs): the colour is mixed
+- RGB groups (for example a ring of red/green/blue LEDs): The colour is mixed
   from the channels, scaled by the brightness.
-- Single-colour white and blue LEDs: white and blue states use them.
+- Single-colour white and blue LEDs: White and blue states use them.
 - Otherwise whatever LED is there stands in.
 
 Blinking uses the kernel `timer` trigger. The state is re-applied when the
@@ -611,7 +611,7 @@ LED rings. Empty (the default) behaves like the UniFi model.
 
 An AP adopted with UCI `mesh_uplink '1'` joins the site's UniFi mesh as a
 wireless uplink when it has no cable, like a UniFi AP that loses its wire.
-Tested: an OpenWrt AP meshing to a UniFi console's AP, shown as "Meshing to"
+Tested: An OpenWrt AP meshing to a UniFi console's AP, shown as "Meshing to"
 the parent in the UniFi. Code: `internal/openwrt/mesh.go`,
 `internal/openwrt/unifi.go` (`uplinkVAP`).
 
@@ -621,7 +621,7 @@ With site meshing on (`connectivity.enabled`), system_cfg carries
 `mesh.status=enabled`, `mesh.version=3`, `mesh.essid=vwire-<hex>` and a
 hidden VAP (`vwireap<N>`, `usage=downlink`, `wds=enabled`, `vwire=enabled`)
 whose `aaa.N` holds WPA2-PSK/CCMP and the mesh passphrase. The translator does
-not create that VAP: serving mesh children is not built.
+not create that VAP: Serving mesh children is not built.
 
 ### The watcher
 
@@ -629,10 +629,10 @@ The daemon writes `/etc/unifi-openwrt/mesh.conf` (mode 600: SSID,
 passphrase, 5 GHz radio, accepted parents) and `mesh.sh`; procd runs
 `mesh.sh` as its own instance, so it keeps working if the daemon stops.
 
-- Every second: wired = any non-Wi-Fi `br-lan` member with carrier.
-- Wired: drop the wireless uplink (link down first, then delete
+- Every second: Wired = any non-Wi-Fi `br-lan` member with carrier.
+- Wired: Drop the wireless uplink (link down first, then delete
   `wireless.unifi_mesh`, `wifi reload`).
-- 20 s without a cable: add `wireless.unifi_mesh` (mode `sta`, `wds 1`,
+- 20 s without a cable: Add `wireless.unifi_mesh` (mode `sta`, `wds 1`,
   `psk2+ccmp`, network `lan`) and `wifi reload`.
 
 **The AP is never uplinked by cable and Wi-Fi at once** (that would loop the
@@ -645,10 +645,10 @@ when the cable returns.
 
 ### How the controller learns the wireless uplink
 
-From the decompiled controller (`devmgr.C.aoUDgXMlCqEvTSIrOtq`): for the
+From the decompiled controller (`devmgr.C.aoUDgXMlCqEvTSIrOtq`): For the
 inform VAP whose `name` equals the inform's `uplink`, with `usage: "uplink"`,
 `channel` != 0 and `up`, each station in its `sta_table` with
-`rx_packets` > 0 is resolved to the parent device: the station's
+`rx_packets` > 0 is resolved to the parent device: The station's
 `serialno` if it is a MAC, else the ESSID `(vwire|vport)-<12 hex>`. The
 site mesh ESSID has 16 hex digits, so `serialno` is needed. The daemon sends
 the parent BSSID as the one station and, as `serialno`, the device on the LAN
@@ -666,13 +666,13 @@ After the cable is back, the `eth0` row carries `signal 0` so the stored
 uplink loses its mesh values (see [Ports](#ports-if_table-port_table)).
 
 Reported on `mwl8k` (Marvell 88W8366, which has separate station and AP
-firmware): a 4-address client alone on the radio associates and completes
+firmware): A 4-address client alone on the radio associates and completes
 the WPA handshake, but received frames never reach the interface. With an AP
 interface on the same radio the driver keeps the AP firmware and the link
 passes traffic. A WLAN on 5 GHz next to the uplink gives exactly that; a
 site with no 5 GHz WLAN on such an AP would have a dead mesh link.
 
-Reported on `ath12k` (TP-Link Archer BE800, OpenWrt snapshot): the uplink
+Reported on `ath12k` (TP-Link Archer BE800, OpenWrt snapshot): The uplink
 associates with `4addr: on` and a good signal, but almost every data frame
 fails and netifd logs `Not supported (-95)` when the station starts. It looks
 like a limit of the driver's 4-address station mode.
@@ -692,7 +692,7 @@ AP joins only that parent's BSSIDs; empty = Auto. Built and unit-tested,
 
 ## VLANs
 
-A WLAN on a tagged UniFi network (a VLAN ID set on the network) works: its
+A WLAN on a tagged UniFi network (a VLAN ID set on the network) works: Its
 clients get addresses on that VLAN. Code: `internal/translate/vlan.go`.
 
 ### What the controller sends
@@ -703,19 +703,19 @@ For a WLAN on VLAN `<vid>`:
   (`eth0`, `eth1`, the element-adopt VAP, the mesh VAP).
 - A second bridge `bridge.2.devname=br0.<vid>` whose ports are the WLAN's
   VAPs (`wifi0ap5`, `wifi1ap6`, ...) and `eth0.<vid>`, `eth1.<vid>`, ...
-- `netconf.N.devname=br0.<vid>` with `ip=0.0.0.0`: the AP has no address on
+- `netconf.N.devname=br0.<vid>` with `ip=0.0.0.0`: The AP has no address on
   the VLAN.
 
-A VAP's own `wireless.N` block has no VLAN key: membership is the bridge
+A VAP's own `wireless.N` block has no VLAN key: Membership is the bridge
 port list.
 
 ### OpenWrt
 
-- `network.uowvlan<vid>`: a bridge device `br-uow<vid>` with port
+- `network.uowvlan<vid>`: A bridge device `br-uow<vid>` with port
   `<first br-lan port>.<vid>` (an 802.1Q device on the cable port). `br-lan`
-  is not changed: a VLAN device on a DSA port in a bridge without VLAN
+  is not changed: A VLAN device on a DSA port in a bridge without VLAN
   filtering receives the tagged frames.
-- `network.uow<vid>`: interface on that bridge, `proto none`: no address and
+- `network.uow<vid>`: Interface on that bridge, `proto none`: No address and
   no DHCP, DNS or RA from the AP.
 - The WLAN's wifi-ifaces get `network uow<vid>`.
 - `uow*` sections are deleted again when the VLAN goes away.
@@ -734,7 +734,7 @@ Code: `internal/translate/guest.go`, `internal/openwrt/guest.go`,
 ### Isolation
 
 For a WLAN with "guest network" on, system_cfg marks its VAPs
-(`aaa.N.is_guest=true`) and sends what a UAP runs: about 46 `ebtables.N.cmd`
+(`aaa.N.is_guest=true`) and sends what a UAP runs: About 46 `ebtables.N.cmd`
 lines (GUESTIN / GUESTOUT chains: EAPOL, ARP and DHCP allowed; DNS
 redirected to the AP; `guest_pre_allow` allowed; IPv6, broadcast and
 `guest_restricted` dropped; unauthorized guests' web traffic redirected),
@@ -763,7 +763,7 @@ After a successful portal login the controller does **not** send
 address, not the AP's. So the AP intercepts guests' TCP 8882 whatever the
 destination and answers it on its own `:8882` (`-portal-listen`).
 
-The cookie: the guest context as JSON plus `\n` (`mac`, `ap`, `url`, `ssid`,
+The cookie: The guest context as JSON plus `\n` (`mac`, `ap`, `url`, `ssid`,
 `t`, `expire` in Unix seconds, `kicks`, ...), AES-128-CBC with PKCS#5
 padding, key = IV = the hex-decoded **`guest_token`**, base64url without
 padding. The AP makes up the token (32 upper-case hex digits, kept in its
@@ -808,22 +808,22 @@ drops BSS entries after about 30 s).
 
 - `cmd scan` / `spectrum-scan` from the controller scan every radio.
 - A background scan every 15 minutes runs only on radios with no clients and
-  no mesh uplink: going off-channel, even briefly, makes clients leave.
-- A **spare radio** (a phy with no interfaces in UCI) is used first: the
+  no mesh uplink: Going off-channel, even briefly, makes clients leave.
+- A **spare radio** (a phy with no interfaces in UCI) is used first: The
   daemon adds a listen-only interface `uowscan0` there, with no UCI change
   and no Wi-Fi reload, and the collector hides it from the controller.
-  Every Wi-Fi reload of an apply deletes it first: the radio may be about
+  Every Wi-Fi reload of an apply deletes it first: The radio may be about
   to get an AP interface, and the daemon adds it again on a radio that is
   still free.
 - An RF scan on a radio with clients disconnects them, as on a real UAP.
 
-ath10k limits seen: a full-band scan from an AP-mode 5 GHz interface may only
+ath10k limits seen: A full-band scan from an AP-mode 5 GHz interface may only
 find the own channel (hence the small steps); the 2.4 GHz radio reported
 survey data only for channel 1 and the channel in use.
 
 ### 802.11k neighbour list
 
-UniFi has no central steering: each AP applies what system_cfg says. With a
+UniFi has no central steering: Each AP applies what system_cfg says. With a
 WLAN's 802.11k on (`aaa.N.11k.status=enabled` -> `ieee80211k 1`), hostapd's
 neighbour list still holds only itself. The daemon adds sibling BSSes from
 its scans (same SSID, matched to a LAN device as above, remembered for an

@@ -1,7 +1,7 @@
 ## Packages (OpenWrt 25.12+, apk)
 
 OpenWrt 25.12 and later use apk-tools 3 and `.apk` packages. There are two ways to
-get a package: build it from the prebuilt binaries (quick, no SDK), or build it in
+get a package: Build it from the prebuilt binaries (quick, no SDK), or build it in
 the OpenWrt SDK / add it to a feed.
 
 ### Build from the prebuilt binaries
@@ -117,7 +117,7 @@ with default images and are left out, because Kconfig cannot express "iw or iw-f
 ## Tested
 
 On one device only (OpenWrt 25.12, `arm_cortex-a15_neon-vfpv4`, apk-tools 3.0.5):
-installing over an install.sh setup (apk takes over `/usr/bin/uow` and the init script,
+Installing over an install.sh setup (apk takes over `/usr/bin/uow` and the init script,
 the existing `/etc/config/unifi-openwrt` is kept and the package default lands in
 `unifi-openwrt.apk-new`, the running daemon restarts), `apk del` (service stopped and
 disabled, config and `/etc/unifi-openwrt` kept) and reinstalling (service enabled and
