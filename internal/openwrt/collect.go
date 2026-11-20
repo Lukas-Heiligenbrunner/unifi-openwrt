@@ -242,6 +242,20 @@ type Port struct {
 	BridgePort       int // port number in br-lan, 0 = not a br-lan member
 }
 
+// sortVAPs puts a radio's AP interfaces before its uplink (client)
+// interface, each group by name. The controller takes a radio's width from
+// the first vap_table row of that radio, and the uplink row carries none.
+// OpenWrt's own names sort that way by themselves (phy1-ap0 before
+// phy1-sta0); a name set by hand (option ifname) may not.
+func sortVAPs(v []Radio) {
+	sort.SliceStable(v, func(a, b int) bool {
+		if ca, cb := v[a].Mode == "Client", v[b].Mode == "Client"; ca != cb {
+			return cb
+		}
+		return v[a].Iface < v[b].Iface
+	})
+}
+
 // Collect reads the AP once.
 func (cl *Client) Collect() (*Snapshot, error) {
 	out, err := cl.Run(collectScript)
@@ -360,7 +374,7 @@ func Parse(out []byte, now time.Time) (*Snapshot, error) {
 		radios[i].VAPs = append(radios[i].VAPs, r)
 	}
 	for i := range radios {
-		sort.Slice(radios[i].VAPs, func(a, b int) bool { return radios[i].VAPs[a].Iface < radios[i].VAPs[b].Iface })
+		sortVAPs(radios[i].VAPs)
 	}
 	s.Radios = withDevices(radios, devs)
 	if off := offDevices(secs.get("wstatus")); len(s.Radios) < len(devs)+len(off) {
