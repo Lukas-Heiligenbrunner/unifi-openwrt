@@ -162,9 +162,39 @@ Technical notes for contributors are in [docs/](docs/):
 the satisfaction formula, models and profiles, LED, mesh, VLANs, guest
 portal and RF scan.
 
+## How it is tested
+
+In three ways, from fast to real:
+
+- **Unit tests** (`go test ./...`): the protocol, the settings translation
+  and readings of real devices kept as test data. A dump of your device
+  (`uow -dump`, see [Contributing](#contributing)) adds it to them.
+- **Virtual machines, before a release.** The daemon runs on OpenWrt x86/64
+  with two simulated radios (`mac80211_hwsim`) against a real, self-hosted
+  UniFi Network controller, on a network that exists only between the two
+  virtual machines. On each OpenWrt version it is installed (the released
+  `.apk`, or `install.sh` where the package manager is `opkg`), adopted,
+  upgraded while adopted, given a WLAN that must come up on both radios,
+  forgotten and adopted again, cut off from the controller on purpose to
+  see the rollback, and removed.
+- **Real hardware**: the devices under [Tested devices](#tested-devices).
+
+| OpenWrt | UniFi Network 10.6.109 | UniFi Network 10.0.160 |
+|---|---|---|
+| 25.12.6 | Passes | Passes |
+| 24.10.8 | Passes | Not run |
+| 23.05.6 | Passes | Not run |
+| Snapshot | Passes | Not run |
+
+What this does not show: a simulated radio behaves like one well-behaved
+driver, so what a real Wi-Fi driver cannot do (see the mesh notes above)
+and how a real radio performs only show on hardware. The runs are started
+by hand before a release, not on every commit, and their set-up is not
+part of this repository.
+
 ## Requirements
 
-- OpenWrt with `apk` or `opkg` (tested: 25.12 and 23.05). The daemon is a static Go
+- OpenWrt with `apk` or `opkg` (tested: 25.12, 24.10 and 23.05). The daemon is a static Go
   binary of 8-10 MB: APs with 16 MB of flash usually do not have room.
 - **The Wi-Fi radios switched on in OpenWrt.** Up to OpenWrt 24.10 a fresh
   install has them off (`uci set wireless.radio0.disabled=0`, the same for
