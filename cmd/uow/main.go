@@ -260,6 +260,7 @@ func main() {
 			}
 			shapeReconcile(ap, s)
 			minRSSIKick(ap, s)
+			roamAssist(ap, s)
 			f := s.Fields(prev, info, radioCaps)
 			scans.fields(f, s, info)
 			prev = s
@@ -1469,6 +1470,41 @@ func minRSSIKick(ap *openwrt.Client, s *openwrt.Snapshot) {
 	for m := range lowRSSI {
 		if !seen[m] {
 			delete(lowRSSI, m)
+		}
+	}
+}
+
+// roamAssist: the WLANs' Roaming Assistant (wireless.N.btm_disassoc.*): a
+// BSS transition request to clients below the threshold for 30 s, at most
+// once a minute; never a disconnect (internal/openwrt/roam.go).
+var (
+	roam    = &openwrt.RoamAssist{}
+	roamErr string
+)
+
+func roamAssist(ap *openwrt.Client, s *openwrt.Snapshot) {
+	if s == nil {
+		return
+	}
+	b, _ := os.ReadFile(ledCfgPath) // system_cfg.txt
+	send, noWNM := roam.Step(translate.RoamAssist(translate.ParseCfg(string(b))), s, time.Now(), func(iface string) (openwrt.BSSInfo, error) {
+		bi, err := ap.BSSInfo(iface)
+		e := ""
+		if err != nil {
+			if e = err.Error(); e != roamErr {
+				log.Printf("roaming assistant: %v", err)
+			}
+		}
+		roamErr = e
+		return bi, err
+	})
+	for _, r := range noWNM {
+		log.Printf("ROAM ASSIST: %s at %d dBm < %d on %s (%s): no BSS transition support, left alone", r.MAC, r.Signal, r.Threshold, r.Iface, r.SSID)
+	}
+	for _, r := range send {
+		log.Printf("ROAM ASSIST: %s at %d dBm < %d on %s (%s): BSS transition request", r.MAC, r.Signal, r.Threshold, r.Iface, r.SSID)
+		if err := ap.BSSTransition(r); err != nil {
+			log.Printf("roaming assistant: %v", err)
 		}
 	}
 }
