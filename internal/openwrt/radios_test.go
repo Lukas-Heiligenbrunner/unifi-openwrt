@@ -3,6 +3,7 @@
 package openwrt
 
 import (
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -163,5 +164,29 @@ func TestChannelUseMultiRadioWiphy(t *testing.T) {
 		if got := rt[i]["athstats"].(map[string]any)["cu_total"]; got != want {
 			t.Errorf("radio %d (%v): cu_total = %v, want %d", i, rt[i]["radio"], got, want)
 		}
+	}
+}
+
+// A wifi-device that is switched off and has no interface is not a radio;
+// it is listed in OffRadios so the daemon can say so.
+func TestOffRadios(t *testing.T) {
+	b, _ := os.ReadFile("testdata/onhub-collect.txt")
+	raw := string(b)
+	if i := strings.Index(raw, "=== wstatus"); i >= 0 {
+		j := strings.Index(raw[i+1:], "\n=== ")
+		raw = raw[:i] + raw[i+1+j+1:]
+	}
+	on := `"radio0": {"up": true, "disabled": false, "config": {"band": "2g", "channel": "6"}, "interfaces": [{"ifname": "phy1-ap0"}]},
+		"radio1": {"up": true, "disabled": false, "config": {"band": "5g", "channel": "36"}, "interfaces": [{"ifname": "phy2-ap0"}]}`
+	s, err := Parse([]byte(raw+"=== wstatus\n{"+on+`, "radio2": {"up": false, "disabled": true, "config": {"band": "5g", "channel": "149"}, "interfaces": []}}`+"\n"), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(s.Radios) != 2 || len(s.OffRadios) != 1 || s.OffRadios[0] != "radio2" {
+		t.Fatalf("radios %d, off %v", len(s.Radios), s.OffRadios)
+	}
+	s, _ = Parse([]byte(raw+"=== wstatus\n{"+on+"}\n"), time.Now())
+	if len(s.Radios) != 2 || len(s.OffRadios) != 0 {
+		t.Fatalf("all on: radios %d, off %v", len(s.Radios), s.OffRadios)
 	}
 }

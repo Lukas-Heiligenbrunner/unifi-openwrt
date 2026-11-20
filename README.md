@@ -166,6 +166,11 @@ portal and RF scan.
 
 - OpenWrt with `apk` or `opkg` (tested: 25.12 and 23.05). The daemon is a static Go
   binary of 8-10 MB: APs with 16 MB of flash usually do not have room.
+- **The Wi-Fi radios switched on in OpenWrt.** Up to OpenWrt 24.10 a fresh
+  install has them off (`uci set wireless.radio0.disabled=0`, the same for
+  the other radios, then `uci commit wireless; wifi`). A radio that is
+  switched off is left alone and not shown in the UniFi, which is also the
+  way to keep a radio out of it; the daemon's log says so at start.
 - **Full wpad** (`wpad-mbedtls`, `wpad-wolfssl` or `wpad-openssl`) instead of
   `wpad-basic-*`: needed for 802.11k/v and the runtime deny
   list. Install it from the package feed; check with `--simulate` before

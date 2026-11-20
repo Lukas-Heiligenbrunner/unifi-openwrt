@@ -150,6 +150,12 @@ func main() {
 			log.Fatalf("refusing: -mac %s is not the AP's MAC (%s, %q)", mac, snap.MAC, snap.Model)
 		}
 		log.Printf("AP: %q %s, %s, ip %s, %d radios", snap.Model, snap.Release, snap.MAC, snap.IP, len(snap.Radios))
+		for _, r := range snap.OffRadios {
+			log.Printf("radio %s is switched off in OpenWrt: left alone and not shown in the UniFi (to hand it over: uci set wireless.%s.disabled=0; uci commit wireless; wifi; then restart unifi-openwrt)", r, r)
+		}
+		if len(snap.Radios) == 0 && len(snap.OffRadios) == 0 {
+			log.Printf("no Wi-Fi radio found: the UniFi will show this AP without radios (is a Wi-Fi driver installed, and rpcd-mod-iwinfo?)")
+		}
 		if *apAddr == "local" {
 			apHost = snap.IP // keeps the static-IP guard on (planNetwork)
 		}

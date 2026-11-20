@@ -168,6 +168,10 @@ type Snapshot struct {
 	ARP      map[string]string // mac -> ip
 	FDB      []FDBEntry        // br-lan forwarding database
 	LLDP     []LLDPNeighbor    // what lldpd hears on the ports (empty without lldpd)
+	// OffRadios: wifi-devices switched off in UCI (disabled '1') that have
+	// no interface, so they are not in Radios and the controller never
+	// hears of them. Left alone on purpose: it is how a radio is kept out.
+	OffRadios []string
 	// UplinkName: the port that is always the uplink (-uplink-port, not
 	// read from the AP); empty = found from the gateway's FDB entry.
 	UplinkName string
@@ -359,6 +363,9 @@ func Parse(out []byte, now time.Time) (*Snapshot, error) {
 		sort.Slice(radios[i].VAPs, func(a, b int) bool { return radios[i].VAPs[a].Iface < radios[i].VAPs[b].Iface })
 	}
 	s.Radios = withDevices(radios, devs)
+	if off := offDevices(secs.get("wstatus")); len(s.Radios) < len(devs)+len(off) {
+		s.OffRadios = off // (fewer radios than wifi-devices: none of them is seen through a leftover interface)
+	}
 	// ng before na; within a band by wifi-device, so the names we report
 	// (wifiN) stay put when an idle radio comes up
 	sort.SliceStable(s.Radios, func(i, j int) bool {
@@ -432,6 +439,24 @@ func parseWirelessStatus(b []byte) []wifiDevice {
 		out = append(out, d)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Section < out[j].Section })
+	return out
+}
+
+// offDevices lists the wifi-devices the wireless status marks disabled.
+func offDevices(b []byte) []string {
+	var st map[string]struct {
+		Disabled bool `json:"disabled"`
+	}
+	if json.Unmarshal(b, &st) != nil {
+		return nil
+	}
+	var out []string
+	for sec, r := range st {
+		if r.Disabled {
+			out = append(out, sec)
+		}
+	}
+	sort.Strings(out)
 	return out
 }
 
