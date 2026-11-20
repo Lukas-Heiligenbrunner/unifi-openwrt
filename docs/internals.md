@@ -278,6 +278,10 @@ From the survey counters: `total` = busy / active, self_rx = receive / active,
 self_tx = transmit / active, interf = total - self_rx - self_tx, as deltas
 between informs, rounded to the nearest percent.
 
+Reported on `mwl8k` (Marvell 88W8366, OpenWrt 23.05): The driver's survey
+is one sample from the last channel change, so the counters do not move
+and channel use never updates in the controller.
+
 ### VAPs and clients: `vap_table`
 
 One row per AP interface, named after the controller's devname for that
