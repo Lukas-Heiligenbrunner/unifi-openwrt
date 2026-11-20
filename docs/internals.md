@@ -122,9 +122,9 @@ controller shows it as connected.
   does not resolve there (OpenWrt's dnsmasq drops answers with private
   addresses), `inform_ip`, the POST and the reachability check after an
   apply use the controller address learned when the URL moved to that name:
-  the SSH peer of `set-adopt`, else the previous URL's address
+  The SSH peer of `set-adopt`, else the previous URL's address
   (`inform_addr` in `state.json`; the log says once how to fix the AP's
-  DNS). A setparam repeated unchanged is answered at once three times, then
+  DNS). A failed lookup is tried again after a minute. A setparam repeated unchanged is answered at once three times, then
   at the normal interval.
 - An empty reply means "nothing". After a bad answer the daemon keeps
   informing, up to a minute apart.
