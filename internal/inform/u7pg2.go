@@ -139,7 +139,7 @@ func DefaultU7PG2Radios() []Radio {
 // carries a literal; a controller with "Override inform host" may send a
 // name, which is looked up (cached for five minutes; a failed lookup keeps
 // the last answer, or else takes the controller address learned for the
-// name, SetInformAddr).
+// name, SetInformAddr, and is tried again after a minute).
 func informIP(u string) (string, error) { return InformIP(u) }
 
 // InformIP is informIP for other packages (the SSH adoption allow list).
@@ -160,12 +160,21 @@ func InformIP(u string) (string, error) {
 	if e.ip != "" && time.Since(e.at) < 5*time.Minute {
 		return e.ip, nil
 	}
-	ips, err := lookupIP(h)
-	for _, ip := range ips {
-		if v4 := ip.To4(); v4 != nil {
-			ipCache[h] = ipEntry{v4.String(), time.Now()}
-			return v4.String(), nil
+	// A failed lookup is not repeated for a minute while there is an address
+	// to fall back on: with a DNS server that does not answer, every lookup
+	// takes seconds, and there are several per inform.
+	var err error
+	if e.ip == "" && learned[h] == "" || time.Since(failedAt[h]) >= time.Minute {
+		var ips []net.IP
+		ips, err = lookupIP(h)
+		for _, ip := range ips {
+			if v4 := ip.To4(); v4 != nil {
+				ipCache[h] = ipEntry{v4.String(), time.Now()}
+				delete(failedAt, h)
+				return v4.String(), nil
+			}
 		}
+		failedAt[h] = time.Now()
 	}
 	if e.ip != "" {
 		return e.ip, nil
@@ -220,6 +229,7 @@ var (
 	ipCache  = map[string]ipEntry{}
 	learned  = map[string]string{} // host name -> controller IPv4 (SetInformAddr)
 	warned   = map[string]bool{}   // learned address in use, logged
+	failedAt = map[string]time.Time{}
 )
 
 func hostOf(u string) string {

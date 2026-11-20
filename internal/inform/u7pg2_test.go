@@ -6,12 +6,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func testDevice() Device {
@@ -133,7 +136,7 @@ func stubLookup(t *testing.T, m map[string]string) {
 	reset := func() {
 		ipMu.Lock()
 		defer ipMu.Unlock()
-		ipCache, learned, warned = map[string]ipEntry{}, map[string]string{}, map[string]bool{}
+		ipCache, learned, warned, failedAt = map[string]ipEntry{}, map[string]string{}, map[string]bool{}, map[string]time.Time{}
 	}
 	reset()
 	lookupIP = func(h string) ([]net.IP, error) {
@@ -197,5 +200,40 @@ func TestDialContextLearnedAddr(t *testing.T) {
 	resp.Body.Close()
 	if host != "ctrl.test:"+port {
 		t.Errorf("Host %q, want ctrl.test:%s", host, port)
+	}
+}
+
+// With an address to fall back on, a failed lookup is not repeated for a
+// minute; without one it is, so a name that starts to resolve is used at once.
+func TestInformIPFailedLookupRemembered(t *testing.T) {
+	stubLookup(t, nil)
+	n := 0
+	lookupIP = func(string) ([]net.IP, error) { n++; return nil, errors.New("timeout") }
+	log.SetOutput(io.Discard)
+	defer log.SetOutput(os.Stderr)
+	SetInformAddr("ctrl.test", "192.0.2.9")
+	for i := 0; i < 5; i++ {
+		if ip, err := InformIP("http://ctrl.test:8080/inform"); err != nil || ip != "192.0.2.9" {
+			t.Fatalf("%q %v", ip, err)
+		}
+	}
+	if n != 1 {
+		t.Errorf("%d lookups in a minute, want 1", n)
+	}
+	ipMu.Lock()
+	failedAt["ctrl.test"] = time.Now().Add(-2 * time.Minute)
+	ipMu.Unlock()
+	InformIP("http://ctrl.test:8080/inform")
+	if n != 2 {
+		t.Errorf("%d lookups after a minute, want 2", n)
+	}
+	n = 0
+	for i := 0; i < 3; i++ {
+		if _, err := InformIP("http://none.test:8080/inform"); err == nil {
+			t.Fatal("a name with no address accepted")
+		}
+	}
+	if n != 3 {
+		t.Errorf("%d lookups for a name with no fallback, want 3", n)
 	}
 }
