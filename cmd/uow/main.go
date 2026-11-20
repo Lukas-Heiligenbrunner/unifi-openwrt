@@ -74,6 +74,7 @@ func main() {
 	stateDir := flag.String("state", "uow-state", "state directory (created mode 700)")
 	healthEvery := flag.Duration("health-every", time.Minute, "health check period")
 	sshListen := flag.String("ssh-listen", ":2222", "fake device SSH (adoption only); empty = off")
+	dump := flag.String("dump", "", "write what the daemon reads from the AP to this file, with MAC and IP addresses, SSIDs and names replaced, and exit (to attach to a bug report; \"-\" = standard output)")
 	maxErrors := flag.Int("max-errors", 0, "stop after this many bad answers in a row (0 = never: keep trying, up to a minute apart)")
 	flag.Parse()
 	if h, _, err := net.SplitHostPort(*apAddr); err == nil {
@@ -84,6 +85,32 @@ func main() {
 		for _, m := range models.All() {
 			fmt.Println(m)
 		}
+		return
+	}
+	if *dump != "" {
+		addr := *apAddr
+		if addr == "" {
+			addr = "local" // on the AP itself
+		}
+		cl := openwrt.NewClient(openwrt.Target{Addr: addr, User: *apUser, KeyFile: *apKey, KnownHosts: *apKH})
+		defer cl.Close()
+		b, err := cl.Dump()
+		if err != nil {
+			log.Fatalf("reading the AP: %v", err)
+		}
+		if *dump == "-" {
+			os.Stdout.Write(b)
+			return
+		}
+		if err := os.WriteFile(*dump, b, 0o600); err != nil {
+			log.Fatal(err)
+		}
+		if s, err := openwrt.Parse(b, time.Now()); err != nil {
+			fmt.Printf("wrote %s (the daemon cannot read this AP: %v)\n", *dump, err)
+		} else {
+			fmt.Printf("wrote %s: %q, %s, %d radios, %d ports\n", *dump, s.Model, s.Release, len(s.Radios), len(s.Ports))
+		}
+		fmt.Println("MAC and IP addresses, SSIDs and names are replaced, passwords are left out. Read the file before you share it.")
 		return
 	}
 	model, ok := models.Lookup(*modelCode)

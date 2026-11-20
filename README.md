@@ -234,7 +234,20 @@ Issues and pull requests are welcome. It has been tested on a few devices only (
 reports from other OpenWrt devices, UniFi models and controller versions help
 most: say which device, OpenWrt version, model (`-model`) and controller version,
 and attach `logread -e uow` with keys and passphrases removed (the daemon never
-logs them). Run `go test ./... && go vet ./...` before sending code.
+logs them).
+
+A dump of what the daemon reads from your AP helps even more, because it
+becomes a test case for your device:
+
+```sh
+uow -dump /tmp/uow-dump.txt
+```
+
+MAC and IP addresses, SSIDs and the hostname are replaced by made-up ones,
+and Wi-Fi passwords and every text field the daemon does not know are left
+out. Read the file before you attach it.
+
+Run `go test ./... && go vet ./...` before sending code.
 
 ## Credits
 
