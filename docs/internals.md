@@ -189,7 +189,11 @@ are not UCI (nftables, tc, usteer, snmpd, hostapd runtime lists).
    daemon on the AP must still get a TCP connection to the controller's
    inform port (the radios say nothing about the wired side: a controller
    that sets a static AP to DHCP on a network without a DHCP server leaves
-   the radios up and the AP unreachable). OK ->
+   the radios up and the AP unreachable). IP settings rolled back for that
+   reason are remembered (`network-refused.txt` in the state directory) and
+   left out of later plans, with a note in the log, until the controller
+   asks for other IP settings: without that, every later change would take
+   the AP off the network for a minute and be rolled back with them. OK ->
    confirm (the timer exits, backups are removed); not OK -> roll back at
    once. A radio left with no interfaces (Disable device) is fine.
 

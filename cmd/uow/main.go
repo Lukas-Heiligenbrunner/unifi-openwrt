@@ -34,6 +34,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -540,6 +541,20 @@ func fmtHealth(h unifiapi.Health) string {
 		h.Version, h.Uptime, h.Devices, ok, h.Latency.Round(time.Millisecond))
 }
 
+func isNetOp(op translate.Op) bool { return strings.HasPrefix(op.Key, "network.") }
+
+// netSig names the network changes in a plan, to recognise them later.
+func netSig(ops []translate.Op) string {
+	var l []string
+	for _, op := range ops {
+		if isNetOp(op) {
+			l = append(l, op.String())
+		}
+	}
+	sort.Strings(l)
+	return strings.Join(l, "\n")
+}
+
 // reachable: a TCP connection to the controller's inform port opens.
 func reachable(informURL string) error {
 	u, err := url.Parse(informURL)
@@ -590,6 +605,18 @@ func syncAP(ap *openwrt.Client, cfgPath string, apply bool, api *unifiapi.Client
 		log.Printf("plan: %v", err)
 		return
 	}
+	// IP settings that cut the AP off from the controller last time are
+	// not tried again: every later change (a new WLAN) would take the AP
+	// off the network for a minute and be rolled back with them.
+	refused := filepath.Join(filepath.Dir(cfgPath), "network-refused.txt")
+	sig := netSig(r.Ops)
+	if old, err := os.ReadFile(refused); err == nil && sig != "" && string(old) == sig {
+		r.Ops = slices.DeleteFunc(r.Ops, isNetOp)
+		r.Notes = append(r.Notes, "network: these IP settings cut the AP off from the controller before and were rolled back: not applied again (give the AP a fixed IP in the UniFi, or put a DHCP server on its network)")
+		sig = ""
+	} else if err == nil {
+		os.Remove(refused) // the controller wants something else now
+	}
 	mode := "log-only, not applied"
 	if apply {
 		mode = "applying"
@@ -637,6 +664,9 @@ func syncAP(ap *openwrt.Client, cfgPath string, apply bool, api *unifiapi.Client
 		}
 		if err != nil {
 			ok, why = false, "the controller cannot be reached any more: "+err.Error()
+			if sig != "" {
+				os.WriteFile(refused, []byte(sig), 0o600)
+			}
 		}
 	}
 	if ok && api != nil {
