@@ -98,16 +98,16 @@ pending; OpenWrt and its Wi-Fi are not reset), then
 
 ## Tested devices
 
-| Device | Hardware | OpenWrt | Adopted as | Tested by | What was tested |
+| Device | Hardware | OpenWrt | Adopted as | UniFi | Tested |
 |---|---|---|---|---|---|
-| [Google OnHub (TP-Link TGR1900)](https://openwrt.org/inbox/toh/google/onhub_tp-link_tgr1900) | Qualcomm IPQ8064, Wi-Fi 5 | 25.12.6 | UAP-AC-Pro (`U7PG2`) | [@antoniocosta](https://github.com/antoniocosta) | Everything under [What works](#what-works) unless marked otherwise, with UniFi Network 10.6 on a UniFi Express 7 |
-| [Linksys LN1301 (MX4300)](https://openwrt.org/toh/linksys/mx4300) | Qualcomm IPQ8174 (`ath11k`), Wi-Fi 6, one 2.4 GHz and two 5 GHz radios | 25.12.6 | U6-IW | [@dohun0310](https://github.com/dohun0310) | Wired, as an AP and small switch: Package install and adoption, all three radios, the 160 MHz option, wired clients on the LAN ports, in-wall port numbering |
-| [Linksys E4200 v2](https://openwrt.org/toh/hwdata/linksys/linksys_e4200_v2) | Marvell Kirkwood, 2x 88W8366 (`mwl8k`), Wi-Fi 4 | 23.05.6 | UAP Pro (`U7P`) | [@rbferreira](https://github.com/rbferreira) | Package install, SSH adoption with the controller on another address, the rollback timer, mesh uplink to a UniFi AP (a U7 Lite), with UniFi Network 11.1.50 on a UCG Ultra |
-| [TP-Link Archer BE800](https://forum.openwrt.org/t/openwrt-for-tp-link-be800/227055) | Qualcomm IPQ9574 (`ath12k`), Wi-Fi 7, one phy for 2.4, 5 and 6 GHz | Snapshot | U7 Pro (`U7PRO`) | [@Kelon5212001](https://github.com/Kelon5212001) | Adoption, all three radios, WLANs applied. Tested on 0.2.0 plus the fixes; confirmation on the merged code is pending. The mesh uplink joins but does not pass traffic (driver limit) |
+| [Google OnHub (TP-Link TGR1900)](https://openwrt.org/inbox/toh/google/onhub_tp-link_tgr1900) | Qualcomm IPQ8064, Wi-Fi 5 | 25.12.6 | UAP-AC-Pro (`U7PG2`) | Network 10.6 on an Express 7 | By [@antoniocosta](https://github.com/antoniocosta): Everything under [What works](#what-works) unless marked otherwise |
+| [Linksys LN1301 (MX4300)](https://openwrt.org/toh/linksys/mx4300) | Qualcomm IPQ8174 (`ath11k`), Wi-Fi 6, one 2.4 GHz and two 5 GHz radios | 25.12.6 | U6-IW | Not reported | By [@dohun0310](https://github.com/dohun0310): Wired, as an AP and small switch. Package install and adoption, all three radios, the 160 MHz option, wired clients on the LAN ports, in-wall port numbering |
+| [Linksys E4200 v2](https://openwrt.org/toh/hwdata/linksys/linksys_e4200_v2) | Marvell Kirkwood, 2x 88W8366 (`mwl8k`), Wi-Fi 4 | 23.05.6 | UAP Pro (`U7P`) | Network 11.1.50 on a UCG Ultra | By [@rbferreira](https://github.com/rbferreira): Package install, SSH adoption with the controller on another address, the rollback timer, mesh uplink to a UniFi AP (a U7 Lite) |
+| [TP-Link Archer BE800](https://forum.openwrt.org/t/openwrt-for-tp-link-be800/227055) | Qualcomm IPQ9574 (`ath12k`), Wi-Fi 7, one phy for 2.4, 5 and 6 GHz | Snapshot | U7 Pro (`U7PRO`) | Not reported | By [@Kelon5212001](https://github.com/Kelon5212001): Adoption, all three radios, WLANs applied. Tested on 0.2.0 plus the fixes; confirmation on the merged code is pending. The mesh uplink joins but does not pass traffic (driver limit) |
 
 Running it on another device? Open an issue or a pull request with the
-device, the OpenWrt version, the UniFi model and what you tested, and it
-gets a row here.
+device, the OpenWrt version, the UniFi model, the UniFi Network version and
+console, and what you tested, and it gets a row here.
 
 ## What works
 
