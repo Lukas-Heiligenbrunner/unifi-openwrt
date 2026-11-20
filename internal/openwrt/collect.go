@@ -230,8 +230,8 @@ type Station struct {
 	RxPackets, TxPackets int64
 	RxRate, TxRate       int // kbit/s
 	TxRetries, TxFailed  int64
-	// HT, VHT, HE: 802.11n/ac/ax as hostapd negotiated them at association;
-	// the current rates' flags when hostapd has no entry for the client
+	// HT, VHT, HE: 802.11n/ac/ax as hostapd negotiated them at association
+	// or as the current rates show them, whichever says yes
 	HT, VHT, HE bool
 	MHz         int
 	NSS         int // spatial streams of the current rates (the more of rx/tx), 0 = legacy rates
@@ -630,9 +630,11 @@ func parseRadio(iface, phy string, secs *secMap) (Radio, error) {
 			NSS: max(a.Rx.streams(), a.Tx.streams()), TxMCS: a.Tx.mcs(),
 		}
 		// the rates show what the last frames used (a Wi-Fi 4 client's
-		// keep-alives go at legacy rates); hostapd what it associated with
+		// keep-alives go at legacy rates); hostapd what it associated with.
+		// Either one saying yes counts: a hostapd that does not report a
+		// flag must not take away what the rates show.
 		if c, ok := hc.Clients[st.MAC]; ok {
-			st.HT, st.VHT, st.HE = c.HT, c.VHT, c.HE
+			st.HT, st.VHT, st.HE = st.HT || c.HT, st.VHT || c.VHT, st.HE || c.HE
 		}
 		r.Stations = append(r.Stations, st)
 	}

@@ -311,8 +311,8 @@ Clients are only in `vap_table[].sta_table[]` (never top level): `mac`,
 Also, as a UAP reports them (checked against a UAP-AC-Pro 6.8.2's own
 inform):
 `is_11n` / `is_11ac` / `is_11ax` from hostapd's flags for the association
-(the current rates only when hostapd has no entry: a Wi-Fi 4 client's
-keep-alives go at legacy rates); `tx_mcs` (the tx rate's MCS index, -1 for
+or from the current rates, whichever says yes (the rates alone are not
+enough: A Wi-Fi 4 client's keep-alives go at legacy rates); `tx_mcs` (the tx rate's MCS index, -1 for
 a legacy rate) and `nss` (spatial streams of the rates, the most seen for
 the client; left out until known), from which the UI shows Wi-Fi 4/5 and
 1x1/2x2 (`radio_proto` is the controller's own: `g` for a client without
