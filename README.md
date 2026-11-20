@@ -28,7 +28,7 @@ So this repo does two things:
 - **It brings OpenWrt access points into UniFi.** The AP is adopted, configured and monitored from
   the same controller as the Ubiquiti APs: Wi-Fi settings, clients, stats, roaming hints, guest
   portal, VLANs, even meshing when its cable is out. Whatever the hardware can't do is clamped and
-  logged, and every change rolls back by itself if the Wi-Fi doesn't come up.
+  logged, and every change rolls back by itself if the Wi-Fi doesn't come up or the controller is lost.
 - **It documents.** How the protocol, the settings and the stats work is written up in
   [docs/internals.md](docs/internals.md), so it can be checked, ported to other devices, or carried
   on by anyone.
@@ -185,7 +185,8 @@ portal and RF scan.
 - **Automatic rollback**: before each apply the touched UCI packages are
   backed up and an on-AP timer restores them after 5 minutes unless the
   change is confirmed. 20 s after an apply the daemon checks that every
-  enabled radio with interfaces is up; if not, it rolls back at once.
+  enabled radio with interfaces is up and that the controller can still
+  be reached; if not, it rolls back at once.
 - **Never wired and mesh-uplinked at once**: the mesh watcher joins only
   after 20 s without cable link and drops the wireless uplink within a
   second of a cable coming back.

@@ -307,7 +307,7 @@ func main() {
 	}
 	if ap != nil {
 		if _, err := os.Stat(filepath.Join(*stateDir, "system_cfg.txt")); err == nil {
-			syncAP(ap, filepath.Join(*stateDir, "system_cfg.txt"), *apply, api, base)
+			syncAP(ap, filepath.Join(*stateDir, "system_cfg.txt"), *apply, api, base, x.S.InformURL)
 		}
 	}
 
@@ -332,7 +332,7 @@ func main() {
 			}
 		}
 		if ap != nil && x.S.CfgVersion != cfgBefore {
-			syncAP(ap, filepath.Join(*stateDir, "system_cfg.txt"), *apply, api, base)
+			syncAP(ap, filepath.Join(*stateDir, "system_cfg.txt"), *apply, api, base, x.S.InformURL)
 			lastBan = time.Time{} // a wifi reload drops hostapd's bans
 			scans.rrmSoon()       // ... and its neighbour lists
 		}
@@ -534,6 +534,23 @@ func fmtHealth(h unifiapi.Health) string {
 		h.Version, h.Uptime, h.Devices, ok, h.Latency.Round(time.Millisecond))
 }
 
+// reachable: a TCP connection to the controller's inform port opens.
+func reachable(informURL string) error {
+	u, err := url.Parse(informURL)
+	if err != nil || u.Host == "" {
+		return fmt.Errorf("bad inform URL %q", informURL)
+	}
+	host := u.Host
+	if u.Port() == "" {
+		host = net.JoinHostPort(u.Hostname(), "80")
+	}
+	c, err := net.DialTimeout("tcp", host, 5*time.Second)
+	if err != nil {
+		return err
+	}
+	return c.Close()
+}
+
 func localIPToward(informURL string) (string, error) {
 	host := strings.TrimPrefix(informURL, "http://")
 	host, _, _ = strings.Cut(host, "/")
@@ -551,8 +568,9 @@ func localIPToward(informURL string) (string, error) {
 
 // syncAP plans the UCI changes the controller's system_cfg implies for the
 // AP and, when apply is set, applies them with an automatic rollback that is
-// cancelled only if the radios come back and the console stays healthy.
-func syncAP(ap *openwrt.Client, cfgPath string, apply bool, api *unifiapi.Client, base unifiapi.Health) {
+// cancelled only if the radios come back, the controller can still be
+// reached (a daemon on the AP) and the console stays healthy.
+func syncAP(ap *openwrt.Client, cfgPath string, apply bool, api *unifiapi.Client, base unifiapi.Health, informURL string) {
 	syncUsers(ap, cfgPath, apply)
 	defer syncGuest(ap, cfgPath, apply)
 	defer syncSteering(ap, cfgPath, apply)
@@ -601,6 +619,19 @@ func syncAP(ap *openwrt.Client, cfgPath string, apply bool, api *unifiapi.Client
 	for try := 0; !ok && try < 3; try++ { // a network reload drops the SSH session; give it time
 		time.Sleep(10 * time.Second)
 		ok, why = ap.WifiHealthy()
+	}
+	if ok && ap.IsLocal() {
+		// The radios say nothing about the wired side: a change to the
+		// address (static to DHCP on a network without a DHCP server) can
+		// leave the AP with healthy radios and no way to the controller.
+		err := reachable(informURL)
+		for try := 0; err != nil && try < 3; try++ { // DHCP may still be asking
+			time.Sleep(10 * time.Second)
+			err = reachable(informURL)
+		}
+		if err != nil {
+			ok, why = false, "the controller cannot be reached any more: "+err.Error()
+		}
 	}
 	if ok && api != nil {
 		if h, err := api.Health(); err != nil {

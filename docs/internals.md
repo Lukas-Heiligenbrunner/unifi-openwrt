@@ -185,7 +185,11 @@ are not UCI (nftables, tc, usteer, snmpd, hostapd runtime lists).
    daemon backs up the touched packages and starts an on-AP timer that
    restores them after 5 minutes unless confirmed.
 4. **Health check.** 20 s later: every enabled radio that has interfaces must
-   be up with its interfaces (`ubus call network.wireless status`). OK ->
+   be up with its interfaces (`ubus call network.wireless status`), and a
+   daemon on the AP must still get a TCP connection to the controller's
+   inform port (the radios say nothing about the wired side: a controller
+   that sets a static AP to DHCP on a network without a DHCP server leaves
+   the radios up and the AP unreachable). OK ->
    confirm (the timer exits, backups are removed); not OK -> roll back at
    once. A radio left with no interfaces (Disable device) is fine.
 
