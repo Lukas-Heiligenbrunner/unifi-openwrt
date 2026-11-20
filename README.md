@@ -84,7 +84,8 @@ device.
    file: `hostname`, `profile_caps`, `locate_beep`, `mesh_uplink`,
    `ssh_port` (adoption SSH responder, default 2222), `hw_caps`,
    `inform_every`, `led_idle`, `uplink_port` (the port that is always the
-   uplink, e.g. `wan`).
+   uplink, e.g. `wan`), `console` (one more address that may adopt over SSH;
+   the controller in the inform URL always may).
 5. **Adopt.** The AP shows up in the UniFi as pending adoption, with the
    chosen model's name. Click Adopt.
 6. **Watch the log:** `logread -e uow`. It shows the adoption, every plan of
@@ -314,6 +315,9 @@ Contributors:
 - [@Kelon5212001](https://github.com/Kelon5212001): Radios that share one
   phy (`ath12k`) and the mesh watcher's cable check, tested on a TP-Link
   Archer BE800.
+- [@Lukas-Heiligenbrunner](https://github.com/Lukas-Heiligenbrunner):
+  Adoption over SSH from a controller whose inform address changed, tested
+  on a D-Link DIR-878.
 
 Similar projects:
 
@@ -324,6 +328,9 @@ Similar projects:
   tested boards.
 - [rrb-unifi](https://github.com/d-malinowski/unifi-openwrt-roaming): 802.11r
   fast roaming between OpenWrt and genuine UniFi access points.
+- [@rbferreira's fork](https://github.com/rbferreira/unifi-openwrt/tree/airport):
+  An Apple AirPort base station reported to the UniFi, read-only. Not
+  supported here.
 
 Details and license texts are in [NOTICE](NOTICE).
 

@@ -96,7 +96,11 @@ Network 10.6 uses two paths; handle both.
    `rsa-sha2-256`, `ssh-rsa`). unifi-openwrt runs a minimal SSH responder
    (`internal/device/sshadopt.go`, default port 2222) that accepts this one
    command and nothing else. If the login fails the device lands in
-   "adoption failed" and only Remove helps.
+   "adoption failed" and only Remove helps. The responder accepts
+   connections only from the controller: The host of the configured inform
+   URL, the host the device informs to now (the controller can move the
+   inform URL at runtime; a host name is looked up), the address in
+   `option console` and the AP's own address. Any other source is refused.
 2. **Inform reply.** A `setparam` whose `mgmt_cfg` holds `authkey=` and
    `use_aes_gcm=true`. Accept a new key from `mgmt_cfg` only while still on
    the factory key (otherwise a device can get stuck re-adopting).
