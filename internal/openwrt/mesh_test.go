@@ -19,6 +19,10 @@ func TestMeshScript(t *testing.T) {
 	if strings.Index(d, `ip link set "$i" down`) > strings.Index(d, "uci -q delete") {
 		t.Fatal("drop must take the link down before cleaning up")
 	}
+	// a cable must reset the wait for an uplink that does not associate
+	if !strings.Contains(meshScript, "if wired; then\n\t\tlost=0 down=0 wait=60") {
+		t.Fatal("the wired branch must reset down and wait")
+	}
 	if meshSafe.MatchString("a'b") || meshSafe.MatchString("a\nb") {
 		t.Fatal("quote/newline accepted")
 	}

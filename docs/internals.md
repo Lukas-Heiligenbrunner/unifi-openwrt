@@ -634,6 +634,14 @@ passphrase, 5 GHz radio, accepted parents) and `mesh.sh`; procd runs
   `wireless.unifi_mesh`, `wifi reload`).
 - 20 s without a cable: Add `wireless.unifi_mesh` (mode `sta`, `wds 1`,
   `psk2+ccmp`, network `lan`) and `wifi reload`.
+- The uplink is configured but not associated (`iw dev <ifname> link`) for
+  60 s: Drop it, so the AP starts alone and the step above adds the uplink
+  back to a running radio. Seen on `mwl8k` after a reboot with the uplink
+  saved in the config: The radio's first set-up has the AP waiting for the
+  uplink, and the uplink's scans return nothing. Each failed try doubles
+  the wait, up to 10 minutes, so an AP with no parent in range does not
+  restart its radio every 80 s; an uplink that associates, a cable or
+  meshing switched off start it at 60 s again.
 
 **The AP is never uplinked by cable and Wi-Fi at once** (that would loop the
 network), except for at most about a second after a cable comes back.

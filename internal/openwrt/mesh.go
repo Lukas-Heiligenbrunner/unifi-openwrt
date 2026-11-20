@@ -56,10 +56,11 @@ UCI
 meshing && wired && drop "wired uplink back"
 lost=0
 down=0
+wait=60
 while :; do
 	# no config (meshing off in the UniFi, or -mesh-uplink off): no wireless uplink
 	if [ ! -s "$C" ]; then
-		lost=0
+		lost=0 down=0 wait=60
 		meshing && drop "meshing off"
 		sleep 5
 		continue
@@ -67,7 +68,7 @@ while :; do
 	MESH_ACCEPT=
 	. "$C"   # MESH_SSID MESH_PSK MESH_RADIO MESH_ACCEPT (written by the daemon; re-read each loop)
 	if wired; then
-		lost=0
+		lost=0 down=0 wait=60
 		meshing && drop "wired uplink back"
 	else
 		lost=$((lost + 1))
@@ -77,15 +78,22 @@ while :; do
 		# the AP waiting for the uplink, the uplink's scans return nothing, and
 		# setting the radio up again does not help. Removing the uplink lets the
 		# AP start alone; the join above then adds it back to a running radio.
+		# With no parent in range this would restart the radio, and its AP,
+		# every 80 s for as long as it lasts. So each failed try doubles the
+		# wait, up to 10 minutes; an uplink that associates, a cable or
+		# meshing switched off start it at 60 s again.
 		if meshing && ! linked; then
 			down=$((down + 1))
-			if [ $down -ge 60 ]; then
+			if [ $down -ge $wait ]; then
+				drop "not associated for $wait s"
 				down=0
 				lost=0
-				drop "not associated for 60 s"
+				wait=$((wait * 2))
+				[ $wait -gt 600 ] && wait=600
 			fi
 		else
 			down=0
+			meshing && wait=60
 		fi
 	fi
 	sleep 1

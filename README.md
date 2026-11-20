@@ -309,8 +309,8 @@ Contributors:
   Linksys LN1301; radio reporting and the Wi-Fi 6, 802.11v and 160 MHz
   fixes.
 - [@rbferreira](https://github.com/rbferreira): The rollback timer without
-  `setsid`, adoption from the inform address and the mesh parent lookup,
-  tested on a Linksys E4200 v2.
+  `setsid`, adoption from the inform address, the mesh parent lookup and a
+  mesh uplink that recovers after a reboot, tested on a Linksys E4200 v2.
 - [@Kelon5212001](https://github.com/Kelon5212001): Radios that share one
   phy (`ath12k`) and the mesh watcher's cable check, tested on a TP-Link
   Archer BE800.
