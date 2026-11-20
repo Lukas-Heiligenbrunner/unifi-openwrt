@@ -99,10 +99,10 @@ pending; OpenWrt and its Wi-Fi are not reset), then
 
 | Device | Hardware | OpenWrt | Adopted as | Tested by | What was tested |
 |---|---|---|---|---|---|
-| [Google OnHub (TP-Link TGR1900)](https://openwrt.org/inbox/toh/google/onhub_tp-link_tgr1900) | Qualcomm IPQ8064, Wi-Fi 5 | 25.12.6 | UAP-AC-Pro (`U7PG2`) | [@antoniocosta](https://github.com/antoniocosta) | everything under [What works](#what-works) unless marked otherwise, with UniFi Network 10.6 on a UniFi Express 7 |
-| [Linksys LN1301 (MX4300)](https://openwrt.org/toh/linksys/mx4300) | Qualcomm IPQ8174 (`ath11k`), Wi-Fi 6, one 2.4 GHz and two 5 GHz radios | 25.12.6 | U6-IW | [@dohun0310](https://github.com/dohun0310) | wired, as an AP and small switch: package install and adoption, all three radios, the 160 MHz option, wired clients on the LAN ports, in-wall port numbering |
-| [Linksys E4200 v2](https://openwrt.org/toh/hwdata/linksys/linksys_e4200_v2) | Marvell Kirkwood, 2x 88W8366 (`mwl8k`), Wi-Fi 4 | 23.05.6 | not reported | [@rbferreira](https://github.com/rbferreira) | package install, SSH adoption with the controller on another address, the rollback timer, mesh uplink to a UniFi AP |
-| [TP-Link Archer BE800](https://forum.openwrt.org/t/openwrt-for-tp-link-be800/227055) | Qualcomm IPQ9574 (`ath12k`), Wi-Fi 7, one phy for 2.4, 5 and 6 GHz | snapshot | U7 Pro (`U7PRO`) | [@Kelon5212001](https://github.com/Kelon5212001) | adoption, all three radios, WLANs applied. Tested on 0.2.0 plus the fixes; confirmation on the merged code is pending. The mesh uplink joins but does not pass traffic (driver limit) |
+| [Google OnHub (TP-Link TGR1900)](https://openwrt.org/inbox/toh/google/onhub_tp-link_tgr1900) | Qualcomm IPQ8064, Wi-Fi 5 | 25.12.6 | UAP-AC-Pro (`U7PG2`) | [@antoniocosta](https://github.com/antoniocosta) | Everything under [What works](#what-works) unless marked otherwise, with UniFi Network 10.6 on a UniFi Express 7 |
+| [Linksys LN1301 (MX4300)](https://openwrt.org/toh/linksys/mx4300) | Qualcomm IPQ8174 (`ath11k`), Wi-Fi 6, one 2.4 GHz and two 5 GHz radios | 25.12.6 | U6-IW | [@dohun0310](https://github.com/dohun0310) | Wired, as an AP and small switch: package install and adoption, all three radios, the 160 MHz option, wired clients on the LAN ports, in-wall port numbering |
+| [Linksys E4200 v2](https://openwrt.org/toh/hwdata/linksys/linksys_e4200_v2) | Marvell Kirkwood, 2x 88W8366 (`mwl8k`), Wi-Fi 4 | 23.05.6 | Not reported | [@rbferreira](https://github.com/rbferreira) | Package install, SSH adoption with the controller on another address, the rollback timer, mesh uplink to a UniFi AP |
+| [TP-Link Archer BE800](https://forum.openwrt.org/t/openwrt-for-tp-link-be800/227055) | Qualcomm IPQ9574 (`ath12k`), Wi-Fi 7, one phy for 2.4, 5 and 6 GHz | Snapshot | U7 Pro (`U7PRO`) | [@Kelon5212001](https://github.com/Kelon5212001) | Adoption, all three radios, WLANs applied. Tested on 0.2.0 plus the fixes; confirmation on the merged code is pending. The mesh uplink joins but does not pass traffic (driver limit) |
 
 Running it on another device? Open an issue or a pull request with the
 device, the OpenWrt version, the UniFi model and what you tested, and it
@@ -110,52 +110,52 @@ gets a row here.
 
 ## What works
 
-<img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works &nbsp; <img src="docs/images/partial.svg" alt="△" width="16" height="16"> partial, limited or not tested live &nbsp; <img src="docs/images/no.svg" alt="✕" width="16" height="16"> not built
+<img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works &nbsp; <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Partial, limited or not tested live &nbsp; <img src="docs/images/no.svg" alt="✕" width="16" height="16"> Not built
 
 Tested live on the OnHub unless marked otherwise (see [Tested devices](#tested-devices)).
 
 | UniFi feature | Status |
 |---|---|
-| Adoption, Remove, adopt again | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (SSH and inform-reply adoption) |
-| Firmware update | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> answered, **never applied**: nothing is downloaded; the offered version is reported so the controller stops asking (never offered in testing) |
-| Clients as wireless clients of the AP, with signal, rates, channel width | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| Radio and VAP stats, channel use, interference, history graphs, CPU and memory | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| Live updates (1 s informs while the panel is open) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| Wi-Fi experience (satisfaction) | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> partial: PHY-rate and retry sub-scores, as the firmware computes them ([details](docs/internals.md#unifi-ap-satisfaction--wifi-experience-score-how-it-is-computed)) |
-| Ethernet ports in the device panel | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (Port Manager; an AC Pro has no port squares) |
-| Wired clients on the AP's LAN ports | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works; tested by [@dohun0310](https://github.com/dohun0310) on the Linksys LN1301, not on the OnHub; in-wall models only (U6-IW and the others with the `ACCESS_POINT_SWITCH` feature) |
-| Radios: channel, width, transmit power, country | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| Indoor / Outdoor | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (Country IE environment) |
-| Minimum RSSI, load balancing (max clients) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| WLANs: SSID, password, WPA2, WPA3, WPA2/WPA3, PMF, hidden, client isolation, U-APSD, DTIM | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (WPA3-only untested live) |
-| WPA-Enterprise (RADIUS), Enhanced Open (OWE), WEP, private pre-shared keys | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> not built: such a WLAN is left off, never opened with other security |
-| MAC filter (allow / deny) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| 802.11k, 802.11v | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works; needs the full `wpad`. The neighbour list is built from the AP's own scans: its own other-band BSSes and the same SSID on other APs of the LAN, genuine UniFi APs included |
-| 802.11r (fast transition) | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> switched on with OpenWrt's defaults, **untested live**. No key exchange with genuine UniFi APs, so a client moving between the two does a normal reconnect ([rrb-unifi](https://github.com/d-malinowski/unifi-openwrt-roaming) adds that exchange) |
-| Band steering | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (usteer, local mode) |
-| Minimum data rates | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> clamped: applied per radio, only when every WLAN on that radio asks for it |
-| WLAN schedules | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (enforced on the AP) |
-| Rate limits (user groups) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (tc shaping; nftables policing without tc) |
-| Guest WLAN: isolation, guest DNS | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| Guest portal (hotspot) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| VLANs (WLAN on a tagged network) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| Block, Unblock, Reconnect | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (immediate with `hostapd-utils`) |
-| Locate, LED on/off, Restart | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works; Locate beeps on APs with a speaker |
-| LED colour and brightness | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> built, **untested live**: only offered when `hw_caps` is claimed (not on the AC Pro) |
-| Disable device | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| IP settings (DHCP / static) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works; a static address other than the current one is refused |
-| Device SSH authentication | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (extra login, root untouched) |
-| NTP server, timezone | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| Remote syslog, including UniFi's encrypted syslog | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works |
-| SNMP v1/v2c | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works; SNMPv3 not built (OpenWrt's snmpd is built without SSL) |
-| RF scan, neighbour scan, rogue AP list | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works (a spare radio is used when there is one) |
-| Mesh: wireless uplink when the cable is out | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works; never cable and mesh at once. On `mwl8k` radios (Marvell 88W8366) the uplink passes traffic only while the 5 GHz radio also carries a WLAN. On `ath12k` (reported on a TP-Link Archer BE800, OpenWrt snapshot) the uplink joins but almost no data gets through |
-| Mesh Parent (choose the uplink AP) | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> built, **untested live** |
-| Serving mesh children, VLANs over mesh | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> not built |
-| Debug terminal, Support file | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> not built |
-| LLDP neighbours (what is on the other end of each cable) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> works with the optional `lldpd` package, which also announces the AP to the switch: the controller then takes the AP's uplink from LLDP. lldpd must listen on the Ethernet ports themselves: `uci add_list lldpd.config.interface=lan1` (your port names), `uci commit lldpd`, `/etc/init.d/lldpd restart` |
-| Discovery broadcast (the AP showing up by itself, before it has the controller's address) | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> not built: the AP is given the address. A controller that finds a device this way adopts it by logging in on its SSH port 22 as `ubnt`, which this project leaves alone |
-| DFS radar events | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> not built |
+| Adoption, Remove, adopt again | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (SSH and inform-reply adoption) |
+| Firmware update | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Answered, **never applied**: nothing is downloaded; the offered version is reported so the controller stops asking (never offered in testing) |
+| Clients as wireless clients of the AP, with signal, rates, channel width | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| Radio and VAP stats, channel use, interference, history graphs, CPU and memory | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| Live updates (1 s informs while the panel is open) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| Wi-Fi experience (satisfaction) | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Partial: PHY-rate and retry sub-scores, as the firmware computes them ([details](docs/internals.md#unifi-ap-satisfaction--wifi-experience-score-how-it-is-computed)) |
+| Ethernet ports in the device panel | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (Port Manager; an AC Pro has no port squares) |
+| Wired clients on the AP's LAN ports | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; tested by [@dohun0310](https://github.com/dohun0310) on the Linksys LN1301, not on the OnHub; in-wall models only (U6-IW and the others with the `ACCESS_POINT_SWITCH` feature) |
+| Radios: channel, width, transmit power, country | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| Indoor / Outdoor | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (Country IE environment) |
+| Minimum RSSI, load balancing (max clients) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| WLANs: SSID, password, WPA2, WPA3, WPA2/WPA3, PMF, hidden, client isolation, U-APSD, DTIM | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (WPA3-only untested live) |
+| WPA-Enterprise (RADIUS), Enhanced Open (OWE), WEP, private pre-shared keys | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> Not built: such a WLAN is left off, never opened with other security |
+| MAC filter (allow / deny) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| 802.11k, 802.11v | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; needs the full `wpad`. The neighbour list is built from the AP's own scans: its own other-band BSSes and the same SSID on other APs of the LAN, genuine UniFi APs included |
+| 802.11r (fast transition) | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Switched on with OpenWrt's defaults, **untested live**. No key exchange with genuine UniFi APs, so a client moving between the two does a normal reconnect ([rrb-unifi](https://github.com/d-malinowski/unifi-openwrt-roaming) adds that exchange) |
+| Band steering | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (usteer, local mode) |
+| Minimum data rates | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Clamped: applied per radio, only when every WLAN on that radio asks for it |
+| WLAN schedules | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (enforced on the AP) |
+| Rate limits (user groups) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (tc shaping; nftables policing without tc) |
+| Guest WLAN: isolation, guest DNS | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| Guest portal (hotspot) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| VLANs (WLAN on a tagged network) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| Block, Unblock, Reconnect | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (immediate with `hostapd-utils`) |
+| Locate, LED on/off, Restart | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; Locate beeps on APs with a speaker |
+| LED colour and brightness | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Built, **untested live**: only offered when `hw_caps` is claimed (not on the AC Pro) |
+| Disable device | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| IP settings (DHCP / static) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; a static address other than the current one is refused |
+| Device SSH authentication | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (extra login, root untouched) |
+| NTP server, timezone | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| Remote syslog, including UniFi's encrypted syslog | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| SNMP v1/v2c | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; SNMPv3 not built (OpenWrt's snmpd is built without SSL) |
+| RF scan, neighbour scan, rogue AP list | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (a spare radio is used when there is one) |
+| Mesh: wireless uplink when the cable is out | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; never cable and mesh at once. On `mwl8k` radios (Marvell 88W8366) the uplink passes traffic only while the 5 GHz radio also carries a WLAN. On `ath12k` (reported on a TP-Link Archer BE800, OpenWrt snapshot) the uplink joins but almost no data gets through |
+| Mesh Parent (choose the uplink AP) | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Built, **untested live** |
+| Serving mesh children, VLANs over mesh | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> Not built |
+| Debug terminal, Support file | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> Not built |
+| LLDP neighbours (what is on the other end of each cable) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works with the optional `lldpd` package, which also announces the AP to the switch: the controller then takes the AP's uplink from LLDP. lldpd must listen on the Ethernet ports themselves: `uci add_list lldpd.config.interface=lan1` (your port names), `uci commit lldpd`, `/etc/init.d/lldpd restart` |
+| Discovery broadcast (the AP showing up by itself, before it has the controller's address) | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> Not built: the AP is given the address. A controller that finds a device this way adopts it by logging in on its SSH port 22 as `ubnt`, which this project leaves alone |
+| DFS radar events | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> Not built |
 
 Technical notes for contributors are in [docs/](docs/):
 [docs/internals.md](docs/internals.md): protocol, config translation, stats,
@@ -227,12 +227,12 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -trimpath -ldflags='-s -w' 
 
 | Path | What |
 |---|---|
-| `cmd/uow` | the daemon |
-| `cmd/owprobe`, `cmd/owplan`, `cmd/owctl` | development helpers: print the inform fields for an AP over SSH, print the UCI plan for a saved system_cfg, run one AP action |
-| `internal/` | protocol (`inform`, `device`), OpenWrt side (`openwrt`), settings translation (`translate`), model catalogue (`models`), read-only UniFi API client (`unifiapi`) |
-| `packaging/` | files installed on the AP, `install.sh`, the OpenWrt package Makefile |
-| `tools/` | build, `.apk` packaging, model catalogue generator, a small SNMP test client |
-| `docs/` | [internals](docs/internals.md), [packaging](docs/packaging.md) |
+| `cmd/uow` | The daemon |
+| `cmd/owprobe`, `cmd/owplan`, `cmd/owctl` | Development helpers: print the inform fields for an AP over SSH, print the UCI plan for a saved system_cfg, run one AP action |
+| `internal/` | Protocol (`inform`, `device`), OpenWrt side (`openwrt`), settings translation (`translate`), model catalogue (`models`), read-only UniFi API client (`unifiapi`) |
+| `packaging/` | Files installed on the AP, `install.sh`, the OpenWrt package Makefile |
+| `tools/` | Build, `.apk` packaging, model catalogue generator, a small SNMP test client |
+| `docs/` | [Internals](docs/internals.md), [packaging](docs/packaging.md) |
 
 ## Contributing
 
