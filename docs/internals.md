@@ -238,7 +238,7 @@ A requested feature the AP lacks is left off and noted ("clamped").
 | `aaa.N.is_guest`, `ebtables`, `iptables`, `ipset`, `redirector` | nftables bridge table for guest isolation, guest DNS forwarder, portal redirect. See [Guest WLANs](#guest-wlans-and-the-guest-portal) |
 | `vlan.N`, `bridge.N` | per-VLAN bridge on the cable port. See [VLANs](#vlans) |
 | `mesh.*`, the `vwire` VAP | mesh-uplink watcher. See [Mesh](#mesh-wireless-uplink) |
-| `system.timezone`, `ntpclient.N.server` | `system.@system[0].timezone`, `system.ntp.server` |
+| `system.timezone`, `ntpclient.N.server` | `system.@system[0].timezone`, `system.ntp.server`. The daemon also compares the AP's clock with the controller's once a minute (`server_time_in_utc` in every reply). More than 30 s apart: It restarts `sysntpd`, and if the clock is still off two minutes later it sets the controller's time. Reason: On an AP with a DHCP address, OpenWrt can start the jailed `ntpd` before the lease arrives; the jail keeps the empty `resolv.conf` of that moment, so `ntpd` never resolves its servers and the clock stays wrong after every boot |
 | `netconf`, `dhcpc`, `route`, `resolv` (management IP) | `network.lan` `proto dhcp` or `static` (`ipaddr`, `netmask`, `gateway`, `dns`). A static address other than the one the daemon reaches the AP on is refused |
 | `users.N` (site Device SSH Authentication, sha512-crypt) | extra uid-0 logins in `/etc/passwd` / `/etc/shadow`; only accounts listed in `/etc/unifi-openwrt/users` are touched, never root or system accounts |
 | `syslog.remote.*` | Plain: `logd` with `log_ip` / `log_port` / `log_proto`; encrypted: The daemon forwards itself ([Encrypted remote syslog](#encrypted-remote-syslog)) |

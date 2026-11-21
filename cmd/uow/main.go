@@ -346,10 +346,16 @@ func main() {
 	lastListing := ""
 	wlanBadChecks := 0
 	var lastBan time.Time
+	var clockGuard openwrt.ClockGuard
+	var clockChecked time.Time
 	for {
 		cfgBefore := x.S.CfgVersion
 		liveInformURL.Store(x.S.InformURL)
 		next, ok := informOnce(x, client, statePath)
+		if ap != nil && *apply && ok && !next.ServerTime.IsZero() && time.Since(clockChecked) >= time.Minute {
+			clockChecked = time.Now()
+			checkClock(ap, &clockGuard, next.ServerTime)
+		}
 		if ok && !ledStarted {
 			ledStarted = true
 		}
@@ -468,6 +474,31 @@ func main() {
 			}
 			time.Sleep(time.Second) // let the console finish its SSH job first
 		case <-time.After(wait):
+		}
+	}
+}
+
+// checkClock compares the AP's clock with the controller's (from the reply
+// just received) and repairs it when they are too far apart: see
+// openwrt.ClockGuard.
+func checkClock(ap *openwrt.Client, g *openwrt.ClockGuard, server time.Time) {
+	got := time.Now()
+	apTime, err := ap.Clock()
+	if err != nil {
+		return
+	}
+	server = server.Add(time.Since(got))
+	offset := apTime.Sub(server).Round(time.Second)
+	switch g.Next(offset, got) {
+	case "restart":
+		log.Printf("CLOCK: the AP's clock differs from the controller's by %s: restarting the time service", offset)
+		if err := ap.RestartTimeService(); err != nil {
+			log.Printf("CLOCK: restarting the time service: %v", err)
+		}
+	case "set":
+		log.Printf("CLOCK: still %s off after restarting the time service (no NTP server reachable?): setting the controller's time", offset)
+		if err := ap.SetClock(server); err != nil {
+			log.Printf("CLOCK: setting the time: %v", err)
 		}
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -205,10 +206,11 @@ type Reply struct {
 	CfgVersion string  `json:"cfgversion"`
 	MgmtCfg    string  `json:"mgmt_cfg"`
 	SystemCfg  string  `json:"system_cfg"`
-	BlockedSta *string `json:"blocked_sta"` // nil = not sent; "" = no blocked clients
-	MAC        string  `json:"mac"`         // cmd kick-sta / block-sta / unblock-sta / (un)authorize-guest
-	Minutes    int     `json:"minutes"`     // authorize-guest: duration, if sent
-	End        int64   `json:"end"`         // authorize-guest: end time (unix s), if sent
+	BlockedSta *string `json:"blocked_sta"`        // nil = not sent; "" = no blocked clients
+	MAC        string  `json:"mac"`                // cmd kick-sta / block-sta / unblock-sta / (un)authorize-guest
+	Minutes    int     `json:"minutes"`            // authorize-guest: duration, if sent
+	End        int64   `json:"end"`                // authorize-guest: end time (unix s), if sent
+	ServerTime any     `json:"server_time_in_utc"` // unix ms, as a string or a number
 }
 
 // Outcome tells the loop what happened and what to do next.
@@ -219,6 +221,23 @@ type Outcome struct {
 	Changed   bool          // state changed: save it
 	Reset     bool          // controller sent setdefault (device was removed)
 	Actions   []string      // for a real AP: "reboot", "led:on", "led:off", "locate:on", "locate:off"
+	// ServerTime is the controller's clock from the reply (zero = not sent).
+	ServerTime time.Time
+}
+
+// serverTime reads server_time_in_utc (unix milliseconds).
+func serverTime(v any) time.Time {
+	var ms int64
+	switch t := v.(type) {
+	case string:
+		ms, _ = strconv.ParseInt(t, 10, 64)
+	case float64:
+		ms = int64(t)
+	}
+	if ms <= 0 {
+		return time.Time{}
+	}
+	return time.UnixMilli(ms)
 }
 
 // Handle applies a decoded reply to the session.
@@ -228,6 +247,7 @@ func (x *Session) Handle(js []byte, now time.Time) (Outcome, error) {
 		return Outcome{}, fmt.Errorf("reply is not JSON: %w", err)
 	}
 	var o Outcome
+	o.ServerTime = serverTime(r.ServerTime)
 	if r.Interval > 0 {
 		o.Interval = time.Duration(r.Interval) * time.Second
 	}

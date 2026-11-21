@@ -248,3 +248,19 @@ func TestSSHAdoptAllowed(t *testing.T) {
 		t.Error("empty allow list accepted a host")
 	}
 }
+
+func TestServerTime(t *testing.T) {
+	for v, want := range map[string]int64{`"1700000000000"`: 1700000000, `1700000000000`: 1700000000, `""`: 0, `"x"`: 0} {
+		x := &Session{}
+		o, err := x.Handle([]byte(`{"_type":"noop","interval":10,"server_time_in_utc":`+v+`}`), time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := o.ServerTime; want == 0 && !got.IsZero() || want != 0 && got.Unix() != want {
+			t.Errorf("server_time_in_utc %s: %v", v, got)
+		}
+	}
+	if o, _ := (&Session{}).Handle([]byte(`{"_type":"noop"}`), time.Now()); !o.ServerTime.IsZero() {
+		t.Errorf("no server time sent: %v", o.ServerTime)
+	}
+}
