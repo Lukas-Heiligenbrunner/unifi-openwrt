@@ -78,6 +78,8 @@ func main() {
 	healthEvery := flag.Duration("health-every", time.Minute, "health check period")
 	sshListen := flag.String("ssh-listen", ":2222", "fake device SSH (adoption only); empty = off")
 	dump := flag.String("dump", "", "write what the daemon reads from the AP to this file, with MAC and IP addresses, SSIDs and names replaced, and exit (to attach to a bug report; \"-\" = standard output)")
+	ftOn := flag.Bool("ft-relay", true, "relay 802.11r key exchange and roam announcements between this AP and UniFi APs (daemon on the AP, kernel veth driver)")
+	ftVerbose := flag.Bool("ft-verbose", false, "log every relayed 802.11r frame and roam announcement")
 	maxErrors := flag.Int("max-errors", 0, "stop after this many bad answers in a row (0 = never: keep trying, up to a minute apart)")
 	flag.Parse()
 	if h, _, err := net.SplitHostPort(*apAddr); err == nil {
@@ -327,10 +329,16 @@ func main() {
 	if ap != nil {
 		ledUpdate(ap, x) // flashing white until the controller answers
 	}
+	if ap != nil && *apply && *ftOn && *apAddr == "local" {
+		loadFTPeers(filepath.Join(*stateDir, "ft_peers.json"))
+		startFT(ap, *ftVerbose)
+		defer closeFT()
+	}
 	if ap != nil {
 		if _, err := os.Stat(filepath.Join(*stateDir, "system_cfg.txt")); err == nil {
 			syncAP(ap, filepath.Join(*stateDir, "system_cfg.txt"), *apply, api, base, x.S.InformURL)
 		}
+		syncFT(ap)
 	}
 
 	stop := make(chan os.Signal, 1)
@@ -348,10 +356,19 @@ func main() {
 	var lastBan time.Time
 	var clockGuard openwrt.ClockGuard
 	var clockChecked time.Time
+	lastFT := time.Now()
 	for {
 		cfgBefore := x.S.CfgVersion
 		liveInformURL.Store(x.S.InformURL)
 		next, ok := informOnce(x, client, statePath)
+		if ap != nil && time.Since(lastFT) >= 15*time.Second {
+			lastFT = time.Now()
+			if updateFTPeers(scans.siblingFT()) {
+				log.Printf("FT: the other APs of a WLAN offer fast roaming for other key types than this AP: planning again")
+				syncAP(ap, filepath.Join(*stateDir, "system_cfg.txt"), *apply, api, base, x.S.InformURL)
+			}
+			syncFT(ap)
+		}
 		if ap != nil && *apply && ok && !next.ServerTime.IsZero() && time.Since(clockChecked) >= time.Minute {
 			clockChecked = time.Now()
 			checkClock(ap, &clockGuard, next.ServerTime)
@@ -760,6 +777,8 @@ func plan(ap *openwrt.Client, cfgPath string) (translate.Result, error) {
 		return translate.Result{}, fmt.Errorf("reading the AP's uci: %w", err)
 	}
 	f := ap.Features()
+	f.FTRelay = ftRelay != nil
+	f.NoFTPSK, f.NoFTSAE = ftLimits()
 	f.APAddr = apHost
 	return translate.Plan(translate.ParseCfg(string(cfg)), translate.ParseUCI(string(out)), f), nil
 }

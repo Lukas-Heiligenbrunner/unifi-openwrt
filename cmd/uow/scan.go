@@ -214,3 +214,35 @@ func (sc *scanner) rrmSoon() {
 	sc.lastRRM = time.Time{}
 	sc.mu.Unlock()
 }
+
+// siblingFT reports, per SSID this AP carries, which fast-roaming key types
+// the other APs of the LAN lack (from the last scans).
+func (sc *scanner) siblingFT() map[string]openwrt.PeerFT {
+	sc.mu.Lock()
+	s := sc.snap
+	var res []openwrt.ScanResult
+	for _, r := range sc.results {
+		res = append(res, r)
+	}
+	sc.mu.Unlock()
+	out := map[string]openwrt.PeerFT{}
+	if s == nil || len(res) == 0 {
+		return out
+	}
+	own := map[string]bool{}
+	for _, r := range s.Radios {
+		for _, v := range r.VAPs {
+			own[v.BSSID] = true
+		}
+	}
+	for _, r := range s.Radios {
+		for _, v := range r.VAPs {
+			if v.Mode == "Master" && v.SSID != "" {
+				if _, done := out[v.SSID]; !done {
+					out[v.SSID] = openwrt.SiblingFT(res, v.SSID, own, s.ARP)
+				}
+			}
+		}
+	}
+	return out
+}

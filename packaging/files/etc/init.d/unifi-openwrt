@@ -25,6 +25,9 @@ start_service() {
 	config_get inform_every main inform_every 0
 	config_get led_idle main led_idle ''
 	config_get uplink_port main uplink_port ''
+	local ft_relay ft_verbose
+	config_get_bool ft_relay main ft_relay 1
+	config_get_bool ft_verbose main ft_verbose 0
 	mkdir -p "$STATE"; chmod 700 /etc/unifi-openwrt "$STATE"
 
 	procd_open_instance
@@ -41,6 +44,8 @@ start_service() {
 	[ -n "$led_idle" ] && procd_append_param command -led-idle "$led_idle"
 	[ -n "$console" ] && procd_append_param command -console "$console"
 	[ -n "$uplink_port" ] && procd_append_param command -uplink-port "$uplink_port"
+	[ "$ft_relay" = 0 ] && procd_append_param command -ft-relay=false
+	[ "$ft_verbose" = 1 ] && procd_append_param command -ft-verbose
 	procd_set_param respawn 3600 10 0
 	procd_set_param stdout 1
 	procd_set_param stderr 1

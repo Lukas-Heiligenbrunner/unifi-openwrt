@@ -8,8 +8,11 @@
 package translate
 
 import (
+	"crypto/sha1"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -60,6 +63,9 @@ type Op struct {
 
 func (o Op) String() string {
 	if o.List != nil {
+		if o.Secret {
+			return fmt.Sprintf("uci set list %s=<hidden>   (%d value(s))", o.Key, len(o.List))
+		}
 		return fmt.Sprintf("uci set list %s=%q   (was %q)", o.Key, o.List, o.Old)
 	}
 	if o.Del {
@@ -110,6 +116,17 @@ type Features struct {
 	// name for the current country; the controller's medium/low modes are
 	// relative to the max. Unknown radios keep the maximum (and a note).
 	TxPower map[string][2]int
+	// FTRelay: the daemon can relay 802.11r key-exchange frames between
+	// hostapd and UniFi APs on this AP (internal/ftrelay). Only then a WLAN
+	// with fast roaming gets the controller's mobility domain and key;
+	// without, it keeps OpenWrt's own, and clients do a full login when
+	// they move between this AP and a UniFi AP.
+	FTRelay bool
+	// NoFTPSK, NoFTSAE: SSIDs on which another AP of the LAN offers WPA2
+	// (WPA3) without its fast-roaming key type. This AP then leaves that
+	// type off too (openwrt.SiblingFT says why). Used only with FTRelay:
+	// without it this AP is in a mobility domain of its own.
+	NoFTPSK, NoFTSAE map[string]bool
 }
 
 // Plan computes the UCI changes that make the AP match system_cfg. Settings
@@ -299,6 +316,7 @@ func Plan(cfg Cfg, cur UCI, f Features) Result {
 				r.Ops = append(r.Ops, Op{Del: true, Key: k + o, Old: old})
 			}
 		}
+		ftLists := planFT(cfg, a, ssid, ifs, want, cur, k, f, &r)
 		policy, macs := macACL(cfg, cfg[w+"devname"])
 		if policy != "disable" {
 			want["macfilter"] = policy
@@ -315,12 +333,22 @@ func Plan(cfg Cfg, cur UCI, f Features) Result {
 		} else if !listEq(cur[k+"maclist"], macs) {
 			r.Ops = append(r.Ops, Op{Key: k + "maclist", List: macs, Old: cur[k+"maclist"]})
 		}
+		r.Ops = append(r.Ops, ftLists...)
 		// Key management as a UAP advertises it. OpenWrt adds WPA-PSK-SHA256
 		// whenever PMF is optional; a UAP does not (it advertises "PSK SAE"),
 		// and some older Macs ignore a BSS that offers it: seen in testing,
 		// a MacBook never tried the OpenWrt AP even at -30 dBm (docs/internals.md).
 		var bssOpts []string
-		if km := keyMgmt(cfg, a, enc, want["ieee80211r"] == "1"); km != "" {
+		noFT := map[string]bool{}
+		if _, relayed := want["mobility_domain"]; relayed {
+			noFT["WPA-PSK"], noFT["SAE"] = f.NoFTPSK[ssid], f.NoFTSAE[ssid]
+			for m, what := range map[string]string{"WPA-PSK": "WPA2", "SAE": "WPA3"} {
+				if noFT[m] {
+					r.Notes = append(r.Notes, fmt.Sprintf("%s: fast roaming for %s clients left off: another AP of this WLAN does not offer it", ifs, what))
+				}
+			}
+		}
+		if km := keyMgmt(cfg, a, enc, want["ieee80211r"] == "1", noFT); km != "" {
 			bssOpts = []string{"wpa_key_mgmt=" + km}
 		}
 		if !listEq(cur[k+"hostapd_bss_options"], bssOpts) {
@@ -373,7 +401,7 @@ func Plan(cfg Cfg, cur UCI, f Features) Result {
 }
 
 // defaultOn: wifi-iface boolean options that OpenWrt treats as 1 when absent.
-var defaultOn = map[string]bool{"uapsd": true, "wmm": true}
+var defaultOn = map[string]bool{"uapsd": true, "wmm": true, "ft_psk_generate_local": true}
 
 func diff(prefix string, want map[string]string, cur UCI, _ []Op) []Op {
 	var ops []Op
@@ -550,9 +578,10 @@ func encryption(cfg Cfg, a string) (string, string) {
 
 // keyMgmt: hostapd's wpa_key_mgmt for a WPA network, built like a UAP does
 // from the controller's list (aaa.N.wpa.key.M.mgmt; "SAE" plus
-// wpa3.transition means WPA-PSK too), with FT variants when 802.11r is on.
+// wpa3.transition means WPA-PSK too), with FT variants when 802.11r is on,
+// except those in noFT (keyed "WPA-PSK", "SAE").
 // "" = leave it to OpenWrt (open networks, or nothing recognised).
-func keyMgmt(cfg Cfg, a, enc string, ft bool) string {
+func keyMgmt(cfg Cfg, a, enc string, ft bool, noFT map[string]bool) string {
 	if enc == "none" {
 		return ""
 	}
@@ -571,7 +600,7 @@ func keyMgmt(cfg Cfg, a, enc string, ft bool) string {
 			continue
 		}
 		out = append(out, m)
-		if ft && fts[m] != "" {
+		if ft && fts[m] != "" && !noFT[m] {
 			out = append(out, fts[m])
 		}
 	}
@@ -684,4 +713,64 @@ func listEq(cur string, want []string) bool {
 		return cur == want[0] || cur == "'"+want[0]+"'"
 	}
 	return cur == strings.Join(quoteEach(want), " ")
+}
+
+// MobilityDomain is the 802.11r mobility domain UniFi firmware gives a WLAN:
+// the first two bytes of SHA-1("salt" + the SSID padded with zeros to 32
+// bytes), as hostapd's four hex digits. (OpenWrt's own default is the start
+// of MD5(SSID), so the two never match by themselves.)
+func MobilityDomain(ssid string) string {
+	b := make([]byte, 4+32)
+	copy(b, "salt")
+	copy(b[4:], ssid)
+	s := sha1.Sum(b)
+	return hex.EncodeToString(s[:2])
+}
+
+var ftKey = regexp.MustCompile(`^[0-9a-fA-F]{32}$`)
+
+// ftOptions are the wifi-iface options planFT owns.
+var ftOptions = []string{"mobility_domain", "pmk_r1_push", "ft_psk_generate_local"}
+
+// planFT makes a WLAN's 802.11r settings those of a UniFi AP, so clients can
+// fast-roam between this AP and UniFi APs: the same mobility domain, keys
+// fetched from the AP of the client's first login (not computed from the
+// password, which UniFi APs do not do), and the wildcard key holders with
+// the controller's key (aaa.N.iapp_key), as UniFi firmware writes them.
+// The frames themselves need the daemon's relay (Features.FTRelay). Without
+// it, or with fast roaming off, the options go back to OpenWrt's defaults.
+// It fills want and returns the ops for the two list options.
+func planFT(cfg Cfg, a, ssid, ifs string, want map[string]string, cur UCI, k string, f Features, r *Result) []Op {
+	key := cfg[a+"iapp_key"]
+	on := want["ieee80211r"] == "1" && ftKey.MatchString(key)
+	if on && !f.FTRelay {
+		r.Notes = append(r.Notes, fmt.Sprintf("%s: fast roaming to and from UniFi APs is not possible here (it needs the kernel's veth driver, package kmod-veth, and the daemon running on the AP): clients do a full login when they move between this AP and a UniFi AP", ifs))
+		on = false
+	}
+	var ops []Op
+	lists := map[string][]string{}
+	if on {
+		want["mobility_domain"] = MobilityDomain(ssid)
+		want["pmk_r1_push"] = "1"
+		want["ft_psk_generate_local"] = "0"
+		key = strings.ToLower(key)
+		lists["r0kh"] = []string{"ff:ff:ff:ff:ff:ff,*," + key}
+		lists["r1kh"] = []string{"00:00:00:00:00:00,00:00:00:00:00:00," + key}
+	} else {
+		for _, o := range ftOptions {
+			if old, has := cur[k+o]; has {
+				ops = append(ops, Op{Del: true, Key: k + o, Old: old})
+			}
+		}
+	}
+	for _, o := range []string{"r0kh", "r1kh"} {
+		old, has := cur[k+o]
+		switch {
+		case lists[o] == nil && has:
+			ops = append(ops, Op{Del: true, Key: k + o, Old: old, Secret: true})
+		case lists[o] != nil && !listEq(old, lists[o]):
+			ops = append(ops, Op{Key: k + o, List: lists[o], Old: old, Secret: true})
+		}
+	}
+	return ops
 }

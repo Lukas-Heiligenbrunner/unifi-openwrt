@@ -870,3 +870,148 @@ hour) and its own BSS of the same SSID on the other band, with
 every 5 minutes and right after each Wi-Fi reload (hostapd forgets the list
 on restart). Element: BSSID, BSSID info `0x08af` (+`0x1000` VHT on 5 GHz),
 the 20 MHz operating class (81, 115, 118, 121, 125), channel, PHY type 7/9.
+
+## 802.11r: Fast roaming with UniFi APs
+
+With Fast Roaming on, a client moves between this AP and genuine UniFi APs
+without a new login, in both directions. Code: `internal/ftrelay`,
+`translate.planFT`, `cmd/uow/ft.go`.
+
+### Why it does not work by itself
+
+To roam fast, the AP a client moves to needs a key (PMK-R1) from the AP of
+the client's last full login (the R0KH). Both vendors run hostapd and fetch
+that key with hostapd's RRB-OUI frames (EtherType 0x88b7, OUI 00:13:74,
+subtype 0x0001), encrypted with a key all APs of the WLAN share. Three
+things differ:
+
+- **The frame.** UniFi's hostapd sends from the AP's Ethernet address, not
+  from the BSSID, and carries both BSSIDs after the frame type. Each side
+  drops the other's frames as too short:
+
+  ```
+  upstream: 00 13 74 00 01 | type | auth_len | auth TLVs | encrypted
+  UniFi:    00 13 74 00 01 | type | src BSSID | dst BSSID | auth_len | auth TLVs | encrypted
+  ```
+
+- **The mobility domain.** UniFi firmware uses the first two bytes of
+  SHA-1("salt" + the SSID padded with zeros to 32 bytes); OpenWrt the start
+  of MD5(SSID). A client only tries a fast roam inside one domain.
+- **The key.** The controller makes one per WLAN and sends it as
+  `aaa.N.iapp_key`; OpenWrt derives its own from the password.
+
+The frame difference was found and documented by
+[rrb-unifi](https://github.com/d-malinowski/unifi-openwrt-roaming). The
+layouts were checked here against frames of a UniFi Express 7.
+
+### Settings
+
+For a WLAN with `aaa.N.ft.status=enabled` and an `iapp_key`, when the relay
+can run:
+
+| UCI option | Value |
+|---|---|
+| `mobility_domain` | UniFi's, from the SSID |
+| `ft_psk_generate_local` | `0`: Keys are fetched, not computed from the password (UniFi APs never compute them) |
+| `pmk_r1_push` | `1` |
+| `r0kh`, `r1kh` | The two wildcard entries with the controller's key, as UniFi firmware writes them. hostapd learns each UniFi BSS from the first exchange |
+
+**Only what the other APs offer.** A UniFi Express 7 gives fast roaming to
+WPA3 clients only (`PSK SAE FT-SAE` on air, whatever the controller's
+"WPA3 fast roaming" switch says), where OpenWrt would give it to WPA2
+clients too. A client that used FT-PSK here and then joined such an AP by a
+normal login can try a fast roam back with keys that are no longer good,
+and is refused once. So the daemon reads the key types of the WLAN's other
+APs from its scans (the BSSes it also uses for the 802.11k list) and leaves
+off the fast-roaming type that one of them lacks: `FT-PSK` if an AP offers
+`PSK` without it, `FT-SAE` if an AP offers `SAE` without it. What it saw is
+kept in `ft_peers.json` in the state directory for a week after the last
+sighting, so a scan that misses the neighbour does not change the Wi-Fi
+back and forth.
+
+`nasid` stays OpenWrt's default, the BSSID without colons, which is what
+UniFi APs use too. Without the relay, or with Fast Roaming off, these
+options are deleted again and OpenWrt's defaults apply: The AP is then in a
+mobility domain of its own, and clients do a normal login when they move
+between it and a UniFi AP.
+
+### The relay
+
+hostapd keeps its normal interface for these frames, the bridge of the
+WLAN's network (`ft_iface`, OpenWrt's default).
+
+- **Out:** A raw socket on the bridge sees hostapd's frames as they leave.
+  The relay sends each again in UniFi's layout, from the bridge's own
+  address, to the Ethernet address of the UniFi AP if it knows it (learned
+  from that AP's frames), else to everyone. The originals leave too; UniFi
+  APs drop them.
+- **In:** A frame in UniFi's layout is rebuilt in upstream's, with the two
+  BSSIDs as its Ethernet addresses, and written into one end of a veth pair
+  whose other end is a port of the bridge. It arrives at the bridge like a
+  frame from the network, addressed to the BSSID, and goes up to hostapd's
+  socket. A broadcast becomes one copy per BSS of that bridge. The bridge
+  floods nothing into that port.
+
+The pair (`uowft0`/`uowfp0`, one per bridge) is made by the daemon at run
+time with netlink and removed when it stops. Every 15 seconds the daemon
+reads hostapd's running configuration again and repairs the port if a
+network reload took it out of the bridge. Translating needs no key.
+
+**Why this layout.** The other way to do it is to point hostapd at a veth
+of its own (`ft_iface` in the Wi-Fi configuration) and relay between that
+and the LAN. Then the Wi-Fi configuration depends on an interface that only
+exists while extra packages are installed: After a firmware upgrade that
+drops them, hostapd cannot start the BSS, and the AP has no Wi-Fi until
+someone repairs it over a cable. Here nothing in `/etc/config` names
+anything the relay makes. Without the daemon or without `kmod-veth` the
+Wi-Fi starts as on any OpenWrt AP; only the key exchange with UniFi APs
+stops, and the next plan takes the UniFi settings out again.
+
+A loopback interface as `ft_iface` needs no kernel module at all, but
+hostapd then hears its own frames and can learn a peer at its own address.
+
+### Roam announcements
+
+A client says nothing to the AP it leaves. UniFi APs therefore broadcast
+"this client is mine now" at every association (EtherType 0x890d to
+01:80:c2:00:00:1c), and the AP that had it drops it at once:
+
+```
+01 f0 1a 00 | sender BSSID (6) | wlan id (2) | AES key wrap (32) | 20 zero bytes
+wrapped:      time in seconds (LE32) | client MAC (6) | 14 zero bytes
+```
+
+The wlan id is the mobility domain, the key (RFC 3394 key wrap) the WLAN's
+`iapp_key`. The daemon sends one when hostapd authorizes a client (it
+follows `AP-STA-CONNECTED` in the system log, which does not touch
+hostapd), and on a UniFi AP's announcement it removes that client here
+(`del_client`, reason 8), unless the client joined here after the
+announcement's time. An announcement more than 60 s from the AP's clock is
+ignored, on both sides, so the clock matters (see the time row in
+[Mapping](#mapping)).
+
+### Tested
+
+OpenWrt 25.12.6 (TP-Link OnHub, both radios) and a UniFi Express 7, WLAN
+with WPA2/WPA3 and PMF optional, a Linux client (wpa_supplicant) ordered to
+roam between the four BSSes:
+
+- WPA3 (FT-SAE): 178 roams, all fast. Median 120 to 160 ms per direction,
+  first login on either AP, also right after a Wi-Fi restart of the OpenWrt
+  AP (first roam 470 ms, with the sequence-number exchange).
+- The daemon stopped: Roams went on with the keys both sides had.
+- WPA2, before the rule above: A WPA2 client roamed fast between the
+  OpenWrt AP's own radios and did a normal login to and from the Express.
+  One roam from the Express back to the OpenWrt AP was refused once (a fast
+  roam tried with keys from before the normal login on the Express); it
+  joined on the next try. That is what the rule prevents.
+
+### Not built, not tested
+
+- FT over the DS (`ft_over_ds` stays 0, the UniFi default).
+- Several OpenWrt APs with the relay, more than one UniFi AP, WLANs on a
+  VLAN bridge (built: One pair per bridge; not tested).
+- Phones.
+
+Switch: `option ft_relay '0'` in `/etc/config/unifi-openwrt`;
+`option ft_verbose '1'` logs every relayed frame.

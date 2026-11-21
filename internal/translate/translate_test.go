@@ -373,3 +373,102 @@ func TestTxPowerMode(t *testing.T) {
 		})
 	}
 }
+
+func TestPlanFT(t *testing.T) {
+	const key = "00112233445566778899AABBCCDDEEFF"
+	ft := cfg + "aaa.1.ft.status=enabled\naaa.1.iapp_key=" + key + "\n"
+	find := func(r Result, opt string) (Op, bool) {
+		for _, op := range r.Ops {
+			if op.Key == "wireless.ap0."+opt {
+				return op, true
+			}
+		}
+		return Op{}, false
+	}
+	// with the relay: the UniFi's mobility domain, pulled keys, the wildcard
+	// key holders with the controller's key
+	r := Plan(ParseCfg(ft), ParseUCI(cur), Features{R: true, FTRelay: true})
+	for opt, want := range map[string]string{"ieee80211r": "1", "mobility_domain": MobilityDomain("home"), "pmk_r1_push": "1", "ft_psk_generate_local": "0"} {
+		if op, ok := find(r, opt); !ok || op.Value != want {
+			t.Errorf("%s = %q (found %v), want %q", opt, op.Value, ok, want)
+		}
+	}
+	lower := strings.ToLower(key)
+	for opt, want := range map[string]string{"r0kh": "ff:ff:ff:ff:ff:ff,*," + lower, "r1kh": "00:00:00:00:00:00,00:00:00:00:00:00," + lower} {
+		op, ok := find(r, opt)
+		if !ok || len(op.List) != 1 || op.List[0] != want || !op.Secret {
+			t.Errorf("%s: %+v", opt, op)
+		}
+		if strings.Contains(op.String(), lower) {
+			t.Errorf("%s: the key shows in the plan: %s", opt, op)
+		}
+	}
+	// applied: nothing left to do
+	after := cur + "wireless.ap0.ieee80211r='1'\nwireless.ap0.mobility_domain='" + MobilityDomain("home") + "'\nwireless.ap0.pmk_r1_push='1'\nwireless.ap0.ft_psk_generate_local='0'\n" +
+		"wireless.ap0.r0kh='ff:ff:ff:ff:ff:ff,*," + lower + "'\nwireless.ap0.r1kh='00:00:00:00:00:00,00:00:00:00:00:00," + lower + "'\n"
+	r = Plan(ParseCfg(ft), ParseUCI(after), Features{R: true, FTRelay: true})
+	for _, opt := range []string{"mobility_domain", "pmk_r1_push", "ft_psk_generate_local", "r0kh", "r1kh"} {
+		if op, ok := find(r, opt); ok {
+			t.Errorf("already applied, but: %s", op)
+		}
+	}
+	// the relay is gone (or fast roaming switched off): back to OpenWrt's
+	// defaults, with a note in the first case
+	for name, c := range map[string]struct {
+		cfg  string
+		f    Features
+		note bool
+	}{
+		"no relay":         {ft, Features{R: true}, true},
+		"fast roaming off": {cfg + "aaa.1.iapp_key=" + key + "\n", Features{R: true, FTRelay: true}, false},
+		"no key sent":      {cfg + "aaa.1.ft.status=enabled\n", Features{R: true, FTRelay: true}, false},
+	} {
+		r = Plan(ParseCfg(c.cfg), ParseUCI(after), c.f)
+		for _, opt := range []string{"mobility_domain", "pmk_r1_push", "ft_psk_generate_local", "r0kh", "r1kh"} {
+			if op, ok := find(r, opt); !ok || !op.Del {
+				t.Errorf("%s: %s not deleted (%+v)", name, opt, op)
+			}
+		}
+		if got := strings.Contains(strings.Join(r.Notes, "\n"), "kmod-veth"); got != c.note {
+			t.Errorf("%s: note %v, want %v: %v", name, got, c.note, r.Notes)
+		}
+	}
+	// a fresh AP without the relay: nothing about FT keys is written
+	r = Plan(ParseCfg(ft), ParseUCI(cur), Features{R: true})
+	for _, opt := range []string{"mobility_domain", "pmk_r1_push", "ft_psk_generate_local", "r0kh", "r1kh"} {
+		if op, ok := find(r, opt); ok {
+			t.Errorf("no relay, fresh AP: %s", op)
+		}
+	}
+	if MobilityDomain("example") != "56a5" { // SHA-1("salt" + "example" + 25 zero bytes) starts 56 a5
+		t.Errorf("mobility domain of example: %s", MobilityDomain("example"))
+	}
+}
+
+func TestPlanFTSiblings(t *testing.T) {
+	ft := cfg + "aaa.1.ft.status=enabled\naaa.1.iapp_key=00112233445566778899aabbccddeeff\naaa.1.wpa3.support=enabled\naaa.1.wpa3.transition=enabled\n"
+	ft = strings.Replace(ft, "aaa.1.wpa.key.1.mgmt=WPA-PSK", "aaa.1.wpa.key.1.mgmt=SAE", 1)
+	opts := func(f Features) string {
+		for _, op := range Plan(ParseCfg(ft), ParseUCI(cur), f).Ops {
+			if op.Key == "wireless.ap0.hostapd_bss_options" {
+				return strings.Join(op.List, "|")
+			}
+		}
+		return ""
+	}
+	lack := map[string]bool{"home": true}
+	for name, c := range map[string]struct {
+		f    Features
+		want string
+	}{
+		"nothing known":             {Features{R: true, FTRelay: true}, "SAE FT-SAE WPA-PSK FT-PSK"},
+		"siblings without FT-PSK":   {Features{R: true, FTRelay: true, NoFTPSK: lack}, "SAE FT-SAE WPA-PSK"},
+		"siblings without FT-SAE":   {Features{R: true, FTRelay: true, NoFTSAE: lack}, "SAE WPA-PSK FT-PSK"},
+		"another SSID's siblings":   {Features{R: true, FTRelay: true, NoFTPSK: map[string]bool{"other": true}}, "SAE FT-SAE WPA-PSK FT-PSK"},
+		"no relay: own domain, all": {Features{R: true, NoFTPSK: lack}, "SAE FT-SAE WPA-PSK FT-PSK"},
+	} {
+		if got := opts(c.f); got != "wpa_key_mgmt="+c.want {
+			t.Errorf("%s: %q, want %q", name, got, c.want)
+		}
+	}
+}

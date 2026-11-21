@@ -134,3 +134,25 @@ func TestMeshAccept(t *testing.T) {
 		t.Fatal("auto should be empty")
 	}
 }
+
+func TestSiblingFT(t *testing.T) {
+	neigh := map[string]string{"02:11:11:11:11:00": "192.0.2.2"}
+	own := map[string]bool{"02:aa:aa:aa:aa:01": true}
+	bss := func(bssid, ssid string, akms ...string) BSS { return BSS{BSSID: bssid, SSID: ssid, AKMs: akms} }
+	for name, c := range map[string]struct {
+		b    []BSS
+		want PeerFT
+	}{
+		"sibling with FT for WPA3 only": {[]BSS{bss("02:11:11:11:11:05", "home", "PSK", "SAE", "FT/SAE")}, PeerFT{LackPSK: true}},
+		"sibling with FT for WPA2 only": {[]BSS{bss("02:11:11:11:11:05", "home", "PSK", "FT/PSK", "SAE")}, PeerFT{LackSAE: true}},
+		"sibling with both":             {[]BSS{bss("02:11:11:11:11:05", "home", "PSK", "FT/PSK", "SAE", "FT/SAE")}, PeerFT{}},
+		"WPA3-only sibling (6 GHz)":     {[]BSS{bss("02:11:11:11:11:06", "home", "SAE", "FT/SAE")}, PeerFT{}},
+		"own BSS, other SSID, a stranger's AP, no RSN": {[]BSS{
+			bss("02:aa:aa:aa:aa:01", "home", "PSK"), bss("02:11:11:11:11:05", "other", "PSK"),
+			bss("02:99:99:99:99:05", "home", "PSK"), bss("02:11:11:11:11:05", "home")}, PeerFT{}},
+	} {
+		if got := SiblingFT([]ScanResult{{BSS: c.b}}, "home", own, neigh); got != c.want {
+			t.Errorf("%s: %+v, want %+v", name, got, c.want)
+		}
+	}
+}

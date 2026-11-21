@@ -133,7 +133,7 @@ Tested live on the OnHub unless marked otherwise (see [Tested devices](#tested-d
 | WPA-Enterprise (RADIUS), Enhanced Open (OWE), WEP, private pre-shared keys | <img src="docs/images/no.svg" alt="✕" width="16" height="16"> Not built: Such a WLAN is left off, never opened with other security |
 | MAC filter (allow / deny) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
 | 802.11k, 802.11v | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; needs the full `wpad`. The neighbour list is built from the AP's own scans: Its own other-band BSSes and the same SSID on other APs of the LAN, genuine UniFi APs included |
-| 802.11r (fast transition) | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Switched on with OpenWrt's defaults, **untested live**. No key exchange with genuine UniFi APs, so a client moving between the two does a normal reconnect ([rrb-unifi](https://github.com/d-malinowski/unifi-openwrt-roaming) adds that exchange) |
+| 802.11r (fast transition) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works, also between this AP and genuine UniFi APs, in both directions: The daemon relays the key exchange between the two and speaks UniFi's roam announcements. Tested with a WPA3 client against a UniFi Express 7 (120 to 160 ms per roam). The Wi-Fi configuration stays stock, so the Wi-Fi also starts without the daemon. Each key type (WPA2, WPA3) gets fast roaming only if the WLAN's other APs offer it too; see [internals](docs/internals.md#80211r-fast-roaming-with-unifi-aps) |
 | Band steering | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (usteer, local mode) |
 | Minimum data rates | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Clamped: Applied per radio, only when every WLAN on that radio asks for it |
 | WLAN schedules | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (enforced on the AP) |
@@ -208,7 +208,7 @@ part of this repository.
   list. Install it from the package feed; check with `--simulate` before
   removing the basic one.
 - `hostapd-utils` (immediate block/unblock), `kmod-nft-bridge` (guest
-  isolation).
+  isolation), `kmod-veth` (fast roaming with UniFi APs).
 - Optional: `usteer` (band steering), `tc-tiny`, `kmod-sched-core`,
   `kmod-sched`, `kmod-ifb` (rate-limit shaping), `snmpd` (SNMP),
   `alsa-utils` (Locate beep), `lldpd` (LLDP neighbours).
@@ -329,7 +329,9 @@ Similar projects:
   with a guided installer, a LuCI app, discovery, WPA-Enterprise and more
   tested boards.
 - [rrb-unifi](https://github.com/d-malinowski/unifi-openwrt-roaming): 802.11r
-  fast roaming between OpenWrt and genuine UniFi access points.
+  fast roaming between OpenWrt and genuine UniFi access points, for an
+  OpenWrt AP that is not managed by the UniFi. It found and documented the
+  frame formats this project's own relay is built on.
 - [@rbferreira's fork](https://github.com/rbferreira/unifi-openwrt/tree/airport):
   An Apple AirPort base station reported to the UniFi, read-only. Not
   supported here.

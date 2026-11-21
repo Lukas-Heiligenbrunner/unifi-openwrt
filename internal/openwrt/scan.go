@@ -34,6 +34,7 @@ type BSS struct {
 	Signal      int // dBm
 	AgeMs       int
 	Security    string
+	AKMs        []string  // RSN key management as iw prints it: "PSK", "FT/PSK", "SAE", "FT/SAE", ...
 	Seen        time.Time // when a scan last returned it (zero: the result's Time)
 }
 
@@ -218,6 +219,9 @@ func ParseScan(out string) []BSS {
 		case strings.HasPrefix(t, "HE Operation:") || strings.HasPrefix(t, "HE operation:"):
 			section = "he"
 		case strings.HasPrefix(t, "* Authentication suites:") && (section == "rsn" || section == "wpa"):
+			if section == "rsn" && b != nil {
+				b.AKMs = strings.Fields(strings.TrimPrefix(t, "* Authentication suites:"))
+			}
 			if strings.Contains(t, "IEEE 802.1X") || strings.Contains(t, "802.1X") {
 				eap = true
 			}
