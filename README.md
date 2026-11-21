@@ -80,12 +80,14 @@ device.
    /etc/init.d/unifi-openwrt start
    ```
 
-   The inform URL needs an IP address, not a host name. Other options in the
-   file: `hostname`, `profile_caps`, `locate_beep`, `mesh_uplink`,
+   Put an IP address into the inform URL: A host name only works if the AP
+   can resolve it. Other options in the file: `hostname`, `profile_caps`,
+   `locate_beep`, `mesh_uplink`,
    `ssh_port` (adoption SSH responder, default 2222), `hw_caps`,
    `inform_every`, `led_idle`, `uplink_port` (the port that is always the
    uplink, e.g. `wan`), `console` (one more address that may adopt over SSH;
-   the controller in the inform URL always may).
+   the controller in the inform URL always may), `ft_relay` (fast roaming
+   with UniFi APs, on by default) and `ft_verbose`.
 5. **Adopt.** The AP shows up in the UniFi as pending adoption, with the
    chosen model's name. Click Adopt.
 6. **Watch the log:** `logread -e uow`. It shows the adoption, every plan of
@@ -98,6 +100,10 @@ pending; OpenWrt and its Wi-Fi are not reset), then
 
 ## Tested devices
 
+Running it on another device? Open an issue or a pull request with the
+device, the OpenWrt version, the UniFi model, the UniFi Network version and
+console, and what you tested, and it gets a row here.
+
 | Device | Hardware | OpenWrt | Adopted as | UniFi | Tested |
 |---|---|---|---|---|---|
 | [Google OnHub (TP-Link TGR1900)](https://openwrt.org/inbox/toh/google/onhub_tp-link_tgr1900) | Qualcomm IPQ8064, Wi-Fi 5 | 25.12.6 | UAP-AC-Pro (`U7PG2`) | Network 10.6 on an Express 7 | By [@antoniocosta](https://github.com/antoniocosta): Everything under [What works](#what-works) unless marked otherwise |
@@ -105,10 +111,6 @@ pending; OpenWrt and its Wi-Fi are not reset), then
 | [Linksys E4200 v2](https://openwrt.org/toh/hwdata/linksys/linksys_e4200_v2) | Marvell Kirkwood, 2x 88W8366 (`mwl8k`), Wi-Fi 4 | 23.05.6 | UAP Pro (`U7P`) | Network 11.1.50 on a UCG Ultra | By [@rbferreira](https://github.com/rbferreira): Package install, SSH adoption with the controller on another address, the rollback timer, mesh uplink to a UniFi AP (a U7 Lite) |
 | [TP-Link Archer BE800](https://forum.openwrt.org/t/openwrt-for-tp-link-be800/227055) | Qualcomm IPQ9574 (`ath12k`), Wi-Fi 7, one phy for 2.4, 5 and 6 GHz | Snapshot | U7 Pro (`U7PRO`) | Not reported | By [@Kelon5212001](https://github.com/Kelon5212001): Adoption, all three radios, WLANs applied. Tested on 0.2.0 plus the fixes; confirmation on the merged code is pending. The mesh uplink joins but does not pass traffic (driver limit) |
 | [D-Link DIR-878 A1](https://openwrt.org/toh/d-link/dir-878_a1) | MediaTek MT7621, Wi-Fi 5 | 25.12.6 | UAP-AC-Pro (`U7PG2`) | Network 10.6.109 | By [@Lukas-Heiligenbrunner](https://github.com/Lukas-Heiligenbrunner): SSH adoption after the inform address changed, and "Override inform host" set to a name |
-
-Running it on another device? Open an issue or a pull request with the
-device, the OpenWrt version, the UniFi model, the UniFi Network version and
-console, and what you tested, and it gets a row here.
 
 ## What works
 
@@ -120,13 +122,13 @@ Tested live on the OnHub unless marked otherwise (see [Tested devices](#tested-d
 |---|---|
 | Adoption, Remove, adopt again | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (SSH and inform-reply adoption) |
 | Firmware update | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Answered, **never applied**: Nothing is downloaded; the offered version is reported so the controller stops asking (never offered in testing) |
-| Clients as wireless clients of the AP, with signal, rates, channel width | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| Clients as wireless clients of the AP, with signal, rates, channel width, spatial streams, transmit power and retries | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
 | Radio and VAP stats, channel use, interference, history graphs, CPU and memory | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works. On `mwl8k` radios (Marvell 88W8366) channel use does not update: The driver only gives one sample from the last channel change. Reported by [@rbferreira](https://github.com/rbferreira) |
 | Live updates (1 s informs while the panel is open) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
 | Wi-Fi experience (satisfaction) | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Partial: PHY-rate and retry sub-scores, as the firmware computes them ([details](docs/internals.md#unifi-ap-satisfaction--wifi-experience-score-how-it-is-computed)) |
 | Ethernet ports in the device panel | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (Port Manager; an AC Pro has no port squares) |
 | Wired clients on the AP's LAN ports | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; tested by [@dohun0310](https://github.com/dohun0310) on the Linksys LN1301, not on the OnHub; in-wall models only (U6-IW and the others with the `ACCESS_POINT_SWITCH` feature) |
-| Radios: Channel, width, transmit power, country | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| Radios: Channel, width, transmit power, country | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works. Power as Auto, High or Custom; Medium and Low are the maximum minus 6 and 12 dB (Ubiquiti does not publish its values). By [@Lukas-Heiligenbrunner](https://github.com/Lukas-Heiligenbrunner); Medium and Low were not tested on the OnHub |
 | Indoor / Outdoor | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (Country IE environment) |
 | Minimum RSSI, load balancing (max clients) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
 | WLANs: SSID, password, WPA2, WPA3, WPA2/WPA3, PMF, hidden, client isolation, U-APSD, DTIM | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (WPA3-only untested live) |
@@ -147,7 +149,7 @@ Tested live on the OnHub unless marked otherwise (see [Tested devices](#tested-d
 | Disable device | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
 | IP settings (DHCP / static) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; a static address other than the current one is refused |
 | Device SSH authentication | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (extra login, root untouched) |
-| NTP server, timezone | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
+| NTP server, timezone | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works. The AP's clock is also compared with the controller's and repaired when it is off |
 | Remote syslog, including UniFi's encrypted syslog | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
 | SNMP v1/v2c | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; SNMPv3 not built (OpenWrt's snmpd is built without SSL) |
 | RF scan, neighbour scan, rogue AP list | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (a spare radio is used when there is one) |
@@ -163,7 +165,7 @@ Tested live on the OnHub unless marked otherwise (see [Tested devices](#tested-d
 Technical notes for contributors are in [docs/](docs/):
 [Docs/internals.md](docs/internals.md): Protocol, config translation, stats,
 the satisfaction formula, models and profiles, LED, mesh, VLANs, guest
-portal and RF scan.
+portal, RF scan and fast roaming with UniFi APs.
 
 ## How it is tested
 
@@ -172,7 +174,7 @@ In three ways, from fast to real:
 - **Unit tests** (`go test ./...`): The protocol, the settings translation
   and readings of real devices kept as test data. A dump of your device
   (`uow -dump`, see [Contributing](#contributing)) adds it to them.
-- **Virtual machines, before a release.** The daemon runs on OpenWrt x86/64
+- **Virtual machines** (last run for v0.2.2). The daemon runs on OpenWrt x86/64
   with two simulated radios (`mac80211_hwsim`) against a real, self-hosted
   UniFi Network controller, on a network that exists only between the two
   virtual machines. On each OpenWrt version it is installed (the released
