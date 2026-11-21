@@ -33,10 +33,10 @@ So this repo does two things:
   [docs/internals.md](docs/internals.md), so it can be checked, ported to other devices, or carried
   on by anyone.
 
-> **Tested on four devices only**, listed under
+> **Tested on five devices only**, listed under
 > [Tested devices](#tested-devices). Other OpenWrt devices, other UniFi
-> models and other controller versions are **best effort**: They may work,
-> they have not been tried. Reports are welcome.
+> models and other controller versions are **best effort**: They will very
+> likely work, they just have not been tried yet. Reports are welcome.
 
 **It never applies Ubiquiti firmware.** Upgrade requests from the controller
 are answered and ignored; Ubiquiti firmware would brick a non-Ubiquiti
