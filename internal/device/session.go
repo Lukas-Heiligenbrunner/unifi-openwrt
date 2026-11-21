@@ -589,10 +589,16 @@ func (x *Session) cmd(r Reply, js []byte, now time.Time, o *Outcome) {
 		// A bundle of logs and settings for Ubiquiti's support, uploaded to
 		// the controller. Not built on purpose: nobody supports this AP
 		// there, and `uow -dump` is the scrubbed report for this project.
+		// Nothing is sent in its place: the controller leaves "generating"
+		// only when a file arrives or after three minutes, and an upload it
+		// rejects changes nothing (tested).
 		o.Events = append(o.Events, "cmd get-support-file: not supported (README: Support file)")
 	case "build-ssh-session", "ssh-sdp-answer", "close-ssh-session":
 		// The debug terminal: a root shell over a WebRTC data channel, set up
 		// through STUN/TURN servers of a third party. Not built on purpose.
+		// The controller's window waits for the AP's connection offer;
+		// reporting the session as "down" in ssh_session_table does not end
+		// that wait (tested), so nothing is reported.
 		o.Events = append(o.Events, "cmd "+r.Cmd+": the debug terminal is not supported (README: Debug terminal)")
 	case "run":
 		// UniFi firmware runs the shell command in this request. Never here.
