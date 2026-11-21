@@ -337,7 +337,7 @@ func Plan(cfg Cfg, cur UCI, f Features) Result {
 		// Key management as a UAP advertises it. OpenWrt adds WPA-PSK-SHA256
 		// whenever PMF is optional; a UAP does not (it advertises "PSK SAE"),
 		// and some older Macs ignore a BSS that offers it: seen in testing,
-		// a MacBook never tried the OpenWrt AP even at -30 dBm (docs/internals.md).
+		// a laptop never tried the OpenWrt AP even at -30 dBm (docs/internals.md).
 		var bssOpts []string
 		noFT := map[string]bool{}
 		if _, relayed := want["mobility_domain"]; relayed {

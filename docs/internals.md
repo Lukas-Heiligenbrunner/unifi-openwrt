@@ -992,19 +992,15 @@ ignored, on both sides, so the clock matters (see the time row in
 
 ### Tested
 
-OpenWrt 25.12.6 (TP-Link OnHub, both radios) and a UniFi Express 7, WLAN
-with WPA2/WPA3 and PMF optional, a Linux client (wpa_supplicant) ordered to
-roam between the four BSSes:
+OpenWrt 25.12.6 (TP-Link OnHub) and a UniFi Express 7, WPA2/WPA3 WLAN:
 
-- WPA3 (FT-SAE): 178 roams, all fast. Median 120 to 160 ms per direction,
-  first login on either AP, also right after a Wi-Fi restart of the OpenWrt
-  AP (first roam 470 ms, with the sequence-number exchange).
-- The daemon stopped: Roams went on with the keys both sides had.
-- WPA2, before the rule above: A WPA2 client roamed fast between the
-  OpenWrt AP's own radios and did a normal login to and from the Express.
-  One roam from the Express back to the OpenWrt AP was refused once (a fast
-  roam tried with keys from before the normal login on the Express); it
-  joined on the next try. That is what the rule prevents.
+- 178 ordered roams of a WPA3 test client across the four radios, first
+  login on either AP: All fast. Typically 120 to 150 ms, at most 240 ms;
+  470 ms for the first roam after a Wi-Fi restart of the OpenWrt AP.
+- A walk with a WPA3 laptop, both ways: Fast. One lost ping (0.2 s) one
+  way; 2.2 s the other, spent before the roam, while the client held on to
+  a weak 6 GHz signal.
+- With the daemon stopped, roams went on with the keys both sides had.
 
 ### Not built, not tested
 
