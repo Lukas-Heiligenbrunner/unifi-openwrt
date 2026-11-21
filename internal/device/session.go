@@ -276,12 +276,15 @@ func (x *Session) Handle(js []byte, now time.Time) (Outcome, error) {
 		x.note("reply", r.Type, redactReply(js), now, &o)
 	}
 	x.noteUnread(js, r.Type, now, &o)
+	// The raw reply helps with a request the daemon does not know yet. It is
+	// logged without the values of secret-looking fields: a controller sends
+	// one-time tokens and passwords in some commands.
 	if strings.Contains(r.Cmd, "guest") {
-		o.Events = append(o.Events, "  raw reply: "+MaskHex(string(js)))
+		o.Events = append(o.Events, "  raw reply: "+redactReply(js))
 	}
 	for _, e := range o.Events {
 		if strings.Contains(e, "ignored") {
-			o.Events = append(o.Events, "  raw reply: "+MaskHex(string(js)))
+			o.Events = append(o.Events, "  raw reply: "+redactReply(js))
 			break
 		}
 	}
@@ -582,6 +585,18 @@ func (x *Session) cmd(r Reply, js []byte, now time.Time, o *Outcome) {
 		o.Immediate = true
 		o.Actions = append(o.Actions, r.Cmd)
 		o.Events = append(o.Events, "cmd "+r.Cmd)
+	case "get-support-file":
+		// A bundle of logs and settings for Ubiquiti's support, uploaded to
+		// the controller. Not built on purpose: nobody supports this AP
+		// there, and `uow -dump` is the scrubbed report for this project.
+		o.Events = append(o.Events, "cmd get-support-file: not supported (README: Support file)")
+	case "build-ssh-session", "ssh-sdp-answer", "close-ssh-session":
+		// The debug terminal: a root shell over a WebRTC data channel, set up
+		// through STUN/TURN servers of a third party. Not built on purpose.
+		o.Events = append(o.Events, "cmd "+r.Cmd+": the debug terminal is not supported (README: Debug terminal)")
+	case "run":
+		// UniFi firmware runs the shell command in this request. Never here.
+		o.Events = append(o.Events, "cmd run: refused (the daemon does not run shell commands for the controller)")
 	default:
 		o.Events = append(o.Events, fmt.Sprintf("cmd %q: ignored", r.Cmd))
 		x.note("cmd", r.Cmd, redactReply(js), now, o)

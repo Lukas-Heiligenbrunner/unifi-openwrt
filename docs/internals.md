@@ -132,6 +132,19 @@ controller shows it as connected.
   `block-sta` / `unblock-sta` (with `mac`), `authorize-guest` /
   `unauthorize-guest`, `scan`, `spectrum-scan`, `reboot`, `setdefault`.
 - Top-level `_type` `reboot`, `setdefault`, `upgrade`.
+- Refused on purpose, with a log line:
+  - `get-support-file` (`token`, `pinned_pubkey`, `upload_url`): A UniFi AP
+    packs logs and settings into a `tar.gz` and posts it to `upload_url` as
+    a multipart form (`file`), with `Authorization: Bearer <token>` and the
+    server's key pinned, expecting 204. The bundle is for Ubiquiti's
+    support; for a report to this project there is `uow -dump`.
+  - `build-ssh-session` (`uuid`, `stun`, `turn`, `username`, `password`,
+    `ttl`), `ssh-sdp-answer`, `close-ssh-session`: The debug terminal. A
+    UniFi AP offers a WebRTC data channel through the given STUN/TURN
+    servers (a third party's) and runs a shell on it. OpenWrt has SSH.
+  - `run` (`shellcmd`): UniFi firmware runs the command.
+  The raw reply of an unknown request is logged without the values of
+  secret-looking fields (tokens, passwords, keys).
 
 **What nothing acts on is listed.** A reply `_type` or `cmd` the daemon
 does not know, a reply field or `mgmt_cfg` key it does not read, and a

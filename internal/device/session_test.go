@@ -264,3 +264,42 @@ func TestServerTime(t *testing.T) {
 		t.Errorf("no server time sent: %v", o.ServerTime)
 	}
 }
+
+func TestRefusedCommands(t *testing.T) {
+	const token = "VGhpcyBpcyBhIG9uZS10aW1lIHRva2VuIGZvciBhbiB1cGxvYWQ="
+	for cmd, want := range map[string]string{
+		"get-support-file":  "not supported",
+		"build-ssh-session": "not supported",
+		"close-ssh-session": "not supported",
+		"run":               "refused",
+	} {
+		x := &Session{}
+		o, err := x.Handle([]byte(`{"_type":"cmd","cmd":"`+cmd+`","token":"`+token+`","password":"p4ss","shellcmd":"reboot","upload_url":"https://192.0.2.1:28082/x"}`), time.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		all := strings.Join(o.Events, "\n")
+		if !strings.Contains(all, want) || len(o.Actions) != 0 {
+			t.Errorf("%s: events %q, actions %v", cmd, o.Events, o.Actions)
+		}
+		if strings.Contains(all, token) || strings.Contains(all, "p4ss") {
+			t.Errorf("%s: a secret is in the log: %q", cmd, all)
+		}
+	}
+}
+
+func TestRawReplyHidesSecrets(t *testing.T) {
+	const token = "VGhpcyBpcyBhIG9uZS10aW1lIHRva2VuIGZvciBhbiB1cGxvYWQ="
+	x := &Session{}
+	o, err := x.Handle([]byte(`{"_type":"cmd","cmd":"something-new","token":"`+token+`","pinned_pubkey":"sha256//abc","note":"kept"}`), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	all := strings.Join(o.Events, "\n")
+	if !strings.Contains(all, "raw reply") || !strings.Contains(all, "kept") {
+		t.Fatalf("no raw reply for an unknown cmd: %q", all)
+	}
+	if strings.Contains(all, token) || strings.Contains(all, "sha256//abc") {
+		t.Errorf("a secret is in the raw reply: %q", all)
+	}
+}
