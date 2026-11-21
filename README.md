@@ -143,7 +143,7 @@ Tested live on the OnHub unless marked otherwise (see [Tested devices](#tested-d
 | VLANs (WLAN on a tagged network) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
 | Block, Unblock, Reconnect | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (immediate with `hostapd-utils`) |
 | Locate, LED on/off, Restart | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; Locate beeps on APs with a speaker |
-| LED colour and brightness | <img src="docs/images/partial.svg" alt="△" width="16" height="16"> Built, **untested live**: Only offered when `hw_caps` is claimed (not on the AC Pro) |
+| LED colour and brightness | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works on APs with LEDs that can show it (tested on an RGB LED ring). The UniFi only offers it when the AP claims the ability: Set `hw_caps` (the AC Pro itself has none). With `led_idle 'rainbow'` the colour shows only until the rainbow takes over |
 | Disable device | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works |
 | IP settings (DHCP / static) | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works; a static address other than the current one is refused |
 | Device SSH authentication | <img src="docs/images/yes.svg" alt="✓" width="16" height="16"> Works (extra login, root untouched) |
